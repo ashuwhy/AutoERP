@@ -32,10 +32,12 @@ export function chip(count, { card, ink, red }) {
 async function total(env) {
     const saved = await env.COUNTER.get("total", "json");
     if (saved && Date.now() - saved.at < FRESH) return saved.count;
+    // Without a token GitHub allows 60 calls an hour per IP, and every Worker on Cloudflare
+    // shares those IPs, so an unauthenticated call often gets a 403.
+    const headers = { "User-Agent": "autoerp-downloads", Accept: "application/vnd.github+json" };
+    if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
     try {
-        const response = await fetch(RELEASES, {
-            headers: { "User-Agent": "autoerp-downloads", Accept: "application/vnd.github+json" },
-        });
+        const response = await fetch(RELEASES, { headers });
         if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
         const releases = await response.json();
         const count = releases.flatMap((release) => release.assets)
@@ -43,8 +45,7 @@ async function total(env) {
         await env.COUNTER.put("total", JSON.stringify({ count, at: Date.now() }));
         return count;
     } catch (error) {
-        // Unauthenticated GitHub calls are capped per IP and Workers share their IPs, so a 403
-        // now and then is normal. The last count stands in until a call gets through.
+        // The last count stands in until a call gets through.
         if (saved) return saved.count;
         throw error;
     }

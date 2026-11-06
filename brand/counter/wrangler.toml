@@ -1,4 +1,6 @@
 # npx wrangler deploy, from this folder. brand/mark.py writes glyphs.js.
+# The GITHUB_TOKEN secret is a fine-grained token with read-only access to public repositories:
+# npx wrangler secret put GITHUB_TOKEN
 name = "autoerp-downloads"
 main = "worker.js"
 compatibility_date = "2026-10-01"
