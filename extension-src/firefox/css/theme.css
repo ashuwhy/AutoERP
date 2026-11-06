@@ -1,0 +1,163 @@
+/* Shared by the popup (linked) and the in-page panel (inlined into its shadow root by js/main.js).
+   Manila file cover, stamp-pad ink, red tape. Vermilion marks the one live thing on screen:
+   the auto in the wordmark, the form that is your turn, the progress, the Start button. */
+:root,
+:host {
+    --paper: #f2ebdc;
+    --card: #e8dfca;
+    --ink: #1b1814;
+    --muted: #6b6254;
+    --line: rgba(27, 24, 20, 0.16);
+    --red: #d9381e;
+    --on-red: #fff8ee;
+    --red-text: #b02a12;
+    --red-soft: #f6d9cc;
+    --disabled: #d9cfba;
+    --font: "AutoERP Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root,
+    :host {
+        --paper: #000000;
+        --card: #1a1712;
+        --ink: #efe6d2;
+        --muted: #9c9282;
+        --line: rgba(239, 230, 210, 0.16);
+        --red: #f0563a;
+        --on-red: #1b0a05;
+        --red-text: #ff7a5c;
+        --red-soft: #2c120b;
+        --disabled: #2a2620;
+    }
+}
+
+/* images/wordmark.svg, inlined by js/main.js so ERP follows the ink and auto the red. */
+.wordmark {
+    display: block;
+    flex: none;
+    width: auto;
+    color: var(--ink);
+}
+
+.wordmark .auto {
+    fill: var(--red);
+}
+
+.btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 48px;
+    border: none;
+    border-radius: 999px;
+    background: var(--red);
+    color: var(--on-red);
+    font: 700 16px var(--font);
+    cursor: pointer;
+}
+
+.btn.secondary {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+.btn:disabled {
+    background: var(--disabled);
+    color: var(--muted);
+    cursor: default;
+}
+
+.btn:not(:disabled):active,
+.chips span:active,
+.round:active {
+    transform: scale(0.98);
+}
+
+.chips {
+    display: flex;
+    gap: 6px;
+}
+
+.chips label {
+    position: relative;
+    flex: 1 1 auto;
+}
+
+.chips input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.chips span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 12px;
+    white-space: nowrap;
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--ink);
+    font: 600 14px var(--font);
+    cursor: pointer;
+}
+
+.chips input:checked + span {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+.chips input:focus-visible + span,
+.btn:focus-visible,
+.round:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+}
+
+.round {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.note {
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: var(--card);
+    color: var(--ink);
+    font: 500 13px/1.4 var(--font);
+}
+
+.note.ok {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+.note.err {
+    background: var(--red-soft);
+    color: var(--red-text);
+}
+
+.note[hidden] {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn:not(:disabled):active,
+    .chips span:active,
+    .round:active {
+        transform: none;
+    }
+}

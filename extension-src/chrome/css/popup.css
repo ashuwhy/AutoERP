@@ -1,0 +1,88 @@
+/* Here and not in theme.css: Chrome ignores @font-face inside a shadow root, so the panel
+   declares its own copy on the ERP page (js/feedback.js). */
+@font-face {
+    font-family: "AutoERP Archivo";
+    src: url("../fonts/archivo.woff2") format("woff2");
+    font-weight: 100 900;
+    font-stretch: 62% 125%;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+}
+
+body {
+    width: 340px;
+    padding: 20px 20px 18px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 14px/1.4 var(--font);
+}
+
+/* Baseline alignment puts the version on ERP's baseline: the wordmark has no descenders, so
+   its bottom edge is the baseline. The min-height holds the row while the SVG loads. */
+.name {
+    display: flex;
+    align-items: baseline;
+    min-height: 24px;
+}
+
+.name .wordmark {
+    height: 24px;
+}
+
+.name span {
+    margin-left: auto;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.intro {
+    margin-top: 16px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 22px;
+}
+
+h2 {
+    margin-bottom: 10px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.hint {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+form .btn {
+    margin-top: 2px;
+}
+
+footer {
+    display: flex;
+    gap: 16px;
+    margin-top: 18px;
+}
+
+footer a {
+    color: var(--muted);
+    font-size: 12px;
+    text-underline-offset: 2px;
+}
+
+footer a:last-child {
+    margin-left: auto;
+}
+
+footer a:hover {
+    color: var(--ink);
+}

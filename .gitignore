@@ -1,0 +1,15 @@
+# Setup Garbage
+.DS_Store
+
+# Builds
+web-ext-artifacts
+
+# ACT Action Testing
+.secrets
+
+# Private Research
+findings
+resources
+
+# Store zips
+dist

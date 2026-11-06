@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>AutoERP</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/popup.css" />
+</head>
+
+<body>
+    <header>
+        <p class="name" id="name"><span id="version"></span></p>
+        <p class="note intro">you type the captcha, i can handle the rest</p>
+    </header>
+
+    <form id="options">
+        <section>
+            <h2>Tone</h2>
+            <div class="chips">
+                <label><input type="radio" name="tone" value="positive" checked /><span>Positive</span></label>
+                <label><input type="radio" name="tone" value="neutral" /><span>Neutral</span></label>
+                <label><input type="radio" name="tone" value="negative" /><span>Negative</span></label>
+            </div>
+            <p class="hint" id="tone-hint"></p>
+        </section>
+
+        <section>
+            <h2>Forms</h2>
+            <div class="chips">
+                <label><input type="radio" name="scope" value="all" checked /><span>All, one by one</span></label>
+                <label><input type="radio" name="scope" value="one" /><span>Open form only</span></label>
+            </div>
+            <p class="hint" id="scope-hint"></p>
+        </section>
+
+        <button class="btn" id="start" type="submit">Start filling</button>
+        <p class="note" id="status" hidden></p>
+    </form>
+
+    <footer>
+        <a href="https://github.com/ashuwhy/AutoERP" target="_blank">Source</a>
+        <a href="https://github.com/ashuwhy/AutoERP/blob/main/PRIVACY.md" target="_blank">Privacy</a>
+        <a href="https://github.com/ashuwhy/AutoERP/issues" target="_blank">Report a problem</a>
+        <a href="https://ashuwhy.com" target="_blank">ashuwhy.com</a>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>
