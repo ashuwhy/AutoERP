@@ -38,8 +38,8 @@ Firefox drops temporary add-ons when it restarts, so load it again next semester
 
 ## Use
 
-1. Log in to ERP and open **Academic > Feedback > Feedback Form**.
-2. Click the AutoERP icon, pick a tone, press **Start filling**.
+1. Log in to ERP.
+2. Click the AutoERP icon, pick a tone, press **Start filling**. If **Academic > Feedback > Feedback Form** isn't open, AutoERP clicks its way there first.
 3. Type each captcha and press `Enter`. The next form opens by itself, and the ones you already submitted are skipped.
 
 The tone sets the ratings, pace, workload and the written answers, and every written answer stays inside ERP's 10-50 word limit. **Open form only** fills just the form in front of you, if you want a different tone for one teacher.

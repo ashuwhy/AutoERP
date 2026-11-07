@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2.0.4 (2026-11-07)
+
+
+### Features
+
+* **Start filling** opens **Academic > Feedback > Feedback Form** by itself when it isn't open, from ERP's home page or the Academic menu, with the same clicks a student makes
+* the popup asks you to log in when the ERP tab is on the login page
+
+### License
+
+* from 2.0.4 AutoERP is all rights reserved, see [LICENSE](../LICENSE), and both zips include it. 2.0.3 and earlier stay under AGPL-3.0
+
 ## 2.0.3 (2026-11-07)
 
 

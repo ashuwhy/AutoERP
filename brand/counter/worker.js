@@ -5,6 +5,9 @@ import { EM, TOP, BOTTOM, DIGITS, LABEL } from "./glyphs.js";
 
 const RELEASES = "https://api.github.com/repos/ashuwhy/AutoERP/releases?per_page=100";
 const FRESH = 5 * 60 * 1000;
+// Downloads of v2.0.0, v2.0.1 and v2.0.2 (6, 5 and 3). Their releases were deleted on 2026-11-07
+// and GitHub dropped the counts with them.
+const DELETED = 14;
 
 // theme.css: --card, --ink and --red
 const LIGHT = { card: "#e8dfca", ink: "#1b1814", red: "#d9381e" };
@@ -55,7 +58,7 @@ export default {
     async fetch(request, env) {
         const theme = new URL(request.url).searchParams.get("theme") === "dark" ? DARK : LIGHT;
         try {
-            return new Response(chip(await total(env), theme), {
+            return new Response(chip(DELETED + await total(env), theme), {
                 headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=300" },
             });
         } catch (error) {

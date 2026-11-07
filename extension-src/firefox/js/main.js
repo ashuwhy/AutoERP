@@ -61,15 +61,81 @@ async function panelCss() {
 }
 
 const START_ERRORS = {
-    "no-form": "Open Academic > Feedback > Feedback Form in this tab first.",
+    "no-form": "Could not open the Feedback Form from here. Open Academic > Feedback > Feedback Form, then press Start filling again.",
     "no-teacher": "Pick a subject and a teacher on the form first, or choose All.",
 };
+
+function fail(text) {
+    show(text, "err");
+    startButton.disabled = false;
+}
+
+// Runs in the page. ERP sends addresses typed or set from a script to noAccess.html, so the way
+// to the form is the clicks a student makes: Academic on the home page, then Feedback Form in
+// its menu. Each call takes one step and says where it got to. The menu arrives after the page
+// does, so later steps wait for their link.
+function stepToForm(want) {
+    const hasForm = () =>
+        document.getElementById("myframe")?.contentDocument?.querySelector('input[name="subject"]');
+    const link = (name) =>
+        [...document.querySelectorAll("a, [onclick]")].find((el) => el.textContent.trim().toLowerCase() === name);
+    const patience = want === "start" ? 3000 : 15000;
+    const started = Date.now();
+    return new Promise((resolve) => {
+        (function look() {
+            if (hasForm()) return resolve("form");
+            const feedback = want !== "form" && link("feedback form");
+            const academic = want === "start" && link("academic");
+            if (feedback || academic) {
+                (feedback || academic).click();
+                return resolve(feedback ? "feedback" : "academic");
+            }
+            if (Date.now() - started > patience) return resolve("lost");
+            setTimeout(look, 250);
+        })();
+    });
+}
+
+const STEP_NOTE = { academic: "Opening Academic...", feedback: "Opening the Feedback Form..." };
+
+async function loaded(tabId) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    for (let waited = 0; waited < 15000; waited += 250) {
+        if ((await chrome.tabs.get(tabId)).status === "complete") return;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+}
+
+async function reachForm(target) {
+    let want = "start";
+    for (let hop = 0; hop < 4; hop++) {
+        let where;
+        try {
+            [{ result: where }] = await chrome.scripting.executeScript({
+                target,
+                world: "MAIN",
+                func: stepToForm,
+                args: [want],
+            });
+        } catch {
+            // The page navigated away while the step was waiting; try the same step on the new one.
+        }
+        if (where === "form" || where === "lost") return where;
+        if (where) {
+            show(STEP_NOTE[where]);
+            want = where === "academic" ? "feedback" : "form";
+        }
+        await loaded(target.tabId);
+    }
+    return "lost";
+}
 
 options.addEventListener("submit", async (event) => {
     event.preventDefault();
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url || new URL(tab.url).hostname !== "erp.iitkgp.ac.in") {
-        show("Open ERP in this tab first, then go to Academic > Feedback > Feedback Form.", "err");
+    const url = tab?.url ? new URL(tab.url) : null;
+    if (url?.hostname !== "erp.iitkgp.ac.in" || url.pathname.startsWith("/SSOAdministration/")) {
+        show("Open ERP in this tab and log in first.", "err");
         return;
     }
     startButton.disabled = true;
@@ -77,6 +143,7 @@ options.addEventListener("submit", async (event) => {
     try {
         const { tone, scope } = choice();
         const target = { tabId: tab.id };
+        if ((await reachForm(target)) !== "form") return fail(START_ERRORS["no-form"]);
         await chrome.scripting.executeScript({ target, world: "MAIN", files: ["js/feedback.js"] });
         const [{ result }] = await chrome.scripting.executeScript({
             target,
@@ -92,14 +159,9 @@ options.addEventListener("submit", async (event) => {
                 },
             ],
         });
-        if (START_ERRORS[result]) {
-            show(START_ERRORS[result], "err");
-            startButton.disabled = false;
-            return;
-        }
+        if (START_ERRORS[result]) return fail(START_ERRORS[result]);
         window.close();
     } catch (error) {
-        show(`Could not start: ${error.message}`, "err");
-        startButton.disabled = false;
+        fail(`Could not start: ${error.message}`);
     }
 });
