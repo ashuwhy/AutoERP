@@ -53,4 +53,4 @@ AutoERP does not solve the captcha, only talks to `erp.iitkgp.ac.in`, and collec
 - Logo kit and store art are in [brand](./brand). [brand/mark.py](./brand/mark.py) draws every icon, the wordmark and the buttons above, from [Forum](https://fonts.google.com/specimen/Forum) and [Archivo](https://github.com/Omnibus-Type/Archivo) (both OFL).
 - Bugs go in [issues](https://github.com/ashuwhy/AutoERP/issues). Me: [ashuwhy.com](https://ashuwhy.com).
 
-Copyright 2026 Ashutosh Sharma, all rights reserved. Install it and use it, but don't copy, modify or republish it; [LICENSE](./LICENSE) has the terms.
+MIT licensed, see [LICENSE](./LICENSE). The AutoERP name and logo aren't part of that grant, so a fork should ship under its own.

@@ -1,29 +1,21 @@
-AutoERP License
+MIT License
 
-Copyright (c) 2026 Ashutosh Sharma. All rights reserved.
+Copyright (c) 2026 Ashutosh Sharma
 
-This covers AutoERP from version 2.0.4 on: its code, its name, its logo and its store art.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-You may:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-- install AutoERP from its GitHub releases (https://github.com/ashuwhy/AutoERP/releases) or its
-  official extension store listings, and use it
-- read the source, and view and fork this repository on GitHub as GitHub's terms allow, to send
-  me a pull request
-
-Without my written permission, you may not:
-
-- copy, modify or redistribute AutoERP or any part of it
-- publish AutoERP, or anything built from it, to an extension store or anywhere else
-- use the AutoERP name or logo
-
-By opening a pull request you agree that I may use, change and publish your contribution as part
-of AutoERP under any license.
-
-Versions 2.0.3 and earlier were released under the GNU Affero General Public License v3.0, and
-anyone who has those versions keeps the rights that license gives them. The fonts in
-extension-src/*/fonts and brand/fonts are under the SIL Open Font License 1.1, in the OFL files
-next to them.
-
-AutoERP is provided as is, without warranty of any kind. I am not liable for any claim, damage
-or other liability arising from AutoERP or its use.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
