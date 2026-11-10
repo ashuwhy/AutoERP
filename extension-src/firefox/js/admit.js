@@ -10,8 +10,16 @@ window.__autoerpAdmit = {
         // A fill running in this tab shares the session these POSTs use; stay out of its way.
         if (window.__autoerp) return null;
         try {
-            const page = await fetch("/Academic/studentFeedbackResponseView.htm", { credentials: "include" });
-            const doc = new DOMParser().parseFromString(await page.text(), "text/html");
+            // Every load of the Feedback Form page gives the session a new security token and
+            // retires the old one, so loading it here would leave a form open in this tab failing
+            // every submit with "Invalid Security token.". An open form has the same subjects.
+            let doc = [document, document.getElementById("myframe")?.contentDocument].find((frame) =>
+                frame?.getElementById("studentFeedbackResponseForm"),
+            );
+            if (!doc) {
+                const page = await fetch("/Academic/studentFeedbackResponseView.htm", { credentials: "include" });
+                doc = new DOMParser().parseFromString(await page.text(), "text/html");
+            }
             const form = doc.getElementById("studentFeedbackResponseForm");
             if (!form) return null;
             const fields = new URLSearchParams(new FormData(form));

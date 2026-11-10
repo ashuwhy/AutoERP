@@ -463,6 +463,34 @@
         $("foot").hidden = false;
     }
 
+    function newCaptcha() {
+        frameDoc()?.getElementById("refreshCaptcha")?.click();
+        const captcha = frameDoc()?.getElementById("captchaInput");
+        if (captcha) {
+            captcha.value = "";
+            captcha.focus();
+        }
+    }
+
+    // ERP keeps one security token per session and every load of the Feedback Form page replaces
+    // it, so a form opened before the latest load (ERP in another tab) fails with "Invalid
+    // Security token." whatever the captcha. A fresh load's token revives it, as ERP's own page
+    // does with newCsrfToken after a submit.
+    async function renewToken() {
+        try {
+            const page = await fetch("/Academic/studentFeedbackResponseView.htm", { credentials: "include" });
+            const fresh = new DOMParser()
+                .parseFromString(await page.text(), "text/html")
+                .querySelector('#studentFeedbackResponseForm input[name="_csrf"]')?.value;
+            const fields = frameDoc()?.querySelectorAll('input[name="_csrf"]') || [];
+            if (!fresh || !fields.length) return false;
+            fields.forEach((field) => (field.value = fresh));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     // js/admit.js, which the popup injects just before this file.
     async function downloadAdmitCard() {
         say("Fetching admit card...");
@@ -532,13 +560,20 @@
                 } else say(`Submitted ${form.subject} - ${form.teacher}. Pick the next teacher and start AutoERP again.`, "ok");
                 return;
             }
-            say(`${form.subject} - ${form.teacher}: ${text} A new captcha is loaded, type it and press Enter.`, "err");
-            frameDoc()?.getElementById("refreshCaptcha")?.click();
-            const captcha = frameDoc()?.getElementById("captchaInput");
-            if (captcha) {
-                captcha.value = "";
-                captcha.focus();
+            const who = `${form.subject} - ${form.teacher}`;
+            // ERP checks the token before the captcha, so a new captcha alone would never pass.
+            if (!/security token/i.test(text)) {
+                newCaptcha();
+                say(`${who}: ${text} A new captcha is loaded, type it and press Enter.`, "err");
+                return;
             }
+            say(`${who}: ERP's security token ran out, getting a new one...`);
+            renewToken().then((renewed) => {
+                if (run.stopped) return;
+                newCaptcha();
+                if (renewed) say(`${who}: ERP's security token ran out, AutoERP got a new one. Type the new captcha and press Enter.`);
+                else say(`${who}: ${text} Reload the page and start AutoERP again.`, "err");
+            });
         },
         stop() {
             run.stopped = true;

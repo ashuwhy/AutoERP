@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2.1.1 (2026-11-10)
+
+
+### Bug Fixes
+
+* **Feedback**: submitting a feedback form no longer fails with "Invalid Security token." after you open the popup. In 2.1.0 the popup loaded ERP's Feedback Form page to count your pending forms, and every load of that page gives you a new security token and retires the one in the form you already had open. The popup now reads the open form instead
+* when ERP does answer "Invalid Security token.", AutoERP puts a fresh token into the form and loads a new captcha, so you type the captcha once more instead of looping on it
+* still open: with ERP in two tabs, opening the popup on one retires the token of a form open in the other. AutoERP recovers it on submit; a form you fill by hand there needs a reload
+
 ## 2.1.0 (2026-11-10)
 
 
