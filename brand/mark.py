@@ -167,6 +167,6 @@ if __name__ == "__main__":
     readme = ROOT / "brand/readme"
     readme.mkdir(exist_ok=True)
     (readme / "download-chrome.svg").write_text(button("Download for Chrome", VERMILION, PAPER))
-    (readme / "download-firefox.svg").write_text(button("Download for Firefox", INK, PAPER))
-    (readme / "download-firefox-dark.svg").write_text(button("Download for Firefox", MANILA, INK))
+    (readme / "add-firefox.svg").write_text(button("Add to Firefox", INK, PAPER))
+    (readme / "add-firefox-dark.svg").write_text(button("Add to Firefox", MANILA, INK))
     (ROOT / "brand/counter/glyphs.js").write_text(counter_glyphs())

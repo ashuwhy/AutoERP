@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/ashuwhy/AutoERP/releases/latest/download/autoerp-chrome.zip"><img src="brand/readme/download-chrome.svg" alt="Download for Chrome" height="48"></a>
   &nbsp;
-  <a href="https://github.com/ashuwhy/AutoERP/releases/latest/download/autoerp-firefox.zip"><picture><source media="(prefers-color-scheme: dark)" srcset="brand/readme/download-firefox-dark.svg"><img src="brand/readme/download-firefox.svg" alt="Download for Firefox" height="48"></picture></a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/autoerp/"><picture><source media="(prefers-color-scheme: dark)" srcset="brand/readme/add-firefox-dark.svg"><img src="brand/readme/add-firefox.svg" alt="Add to Firefox" height="48"></picture></a>
 </p>
 
 <p align="center">
@@ -31,10 +31,7 @@ If your browser won't take the zip, unzip it and pick the `autoerp-chrome` folde
 
 **Firefox**
 
-1. Download `autoerp-firefox.zip`.
-2. Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on...** and pick the zip.
-
-Firefox drops temporary add-ons when it restarts, so load it again next semester.
+AutoERP is on [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/autoerp/). Open it, click **Add to Firefox**, and Firefox keeps it updated from then on.
 
 ## Use
 
