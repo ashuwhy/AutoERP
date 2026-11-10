@@ -1,15 +1,26 @@
 {
     "manifest_version": 3,
     "name": "AutoERP",
-    "description": "Fills your end-semester feedback forms on IIT Kharagpur ERP. you type the captcha, i can handle the rest.",
+    "description": "Fills your IIT Kharagpur ERP and CDC login up to the OTP, and your end-semester feedback forms.",
     "homepage_url": "https://github.com/ashuwhy/AutoERP",
-    "version": "2.0.4",
+    "version": "2.1.0",
     "permissions": [
         "scripting",
-        "activeTab"
+        "activeTab",
+        "storage"
     ],
     "host_permissions": [
         "*://erp.iitkgp.ac.in/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "https://erp.iitkgp.ac.in/SSOAdministration/login.htm*"
+            ],
+            "js": [
+                "js/login.js"
+            ]
+        }
     ],
     "action": {
         "default_popup": "main.html",
@@ -28,7 +39,9 @@
     "web_accessible_resources": [
         {
             "resources": [
-                "fonts/archivo.woff2"
+                "fonts/archivo.woff2",
+                "css/theme.css",
+                "images/wordmark.svg"
             ],
             "matches": [
                 "*://erp.iitkgp.ac.in/*"

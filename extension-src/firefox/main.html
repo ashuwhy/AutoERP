@@ -11,32 +11,78 @@
 <body>
     <header>
         <p class="name" id="name"><span id="version"></span></p>
-        <p class="note intro">you type the captcha, i can handle the rest</p>
     </header>
 
-    <form id="options">
-        <section>
-            <h2>Tone</h2>
-            <div class="chips">
-                <label><input type="radio" name="tone" value="positive" checked /><span>Positive</span></label>
-                <label><input type="radio" name="tone" value="neutral" /><span>Neutral</span></label>
-                <label><input type="radio" name="tone" value="negative" /><span>Negative</span></label>
+    <!-- One group per job. The shared name makes them an accordion: opening one closes the other. -->
+    <details name="job" id="login-group">
+        <summary>
+            <h2>Login</h2>
+            <span class="state" id="login-state"></span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </summary>
+        <form id="login">
+            <div class="stack" id="login-account">
+                <input name="roll" placeholder="Roll number" aria-label="Roll number" autocomplete="off" spellcheck="false" required />
+                <input name="password" type="password" placeholder="ERP password" aria-label="ERP password" autocomplete="off" required />
             </div>
-            <p class="hint" id="tone-hint"></p>
-        </section>
-
-        <section>
-            <h2>Forms</h2>
-            <div class="chips">
-                <label><input type="radio" name="scope" value="all" checked /><span>All, one by one</span></label>
-                <label><input type="radio" name="scope" value="one" /><span>Open form only</span></label>
+            <div class="stack" id="login-answers" hidden>
+                <div class="chips">
+                    <span class="picked" id="login-for"></span>
+                    <button type="button" id="login-back">Back</button>
+                </div>
+                <div class="stack asks" id="login-asks"></div>
             </div>
-            <p class="hint" id="scope-hint"></p>
-        </section>
+            <div class="chips" id="login-saved" hidden>
+                <span class="picked" id="login-roll"></span>
+                <button type="button" id="login-edit">Edit</button>
+                <button type="button" id="forget">Forget</button>
+            </div>
+            <button class="btn secondary" id="login-go" type="submit">Continue</button>
+            <button class="btn" id="open-erp" type="button" hidden>Open ERP</button>
+            <p class="note" id="login-msg" role="status" hidden></p>
+            <p class="hint" id="login-hint"></p>
+        </form>
+    </details>
 
-        <button class="btn" id="start" type="submit">Start filling</button>
-        <p class="note" id="status" hidden></p>
-    </form>
+    <details name="job" id="feedback-group">
+        <summary>
+            <h2>Admit card download</h2>
+            <span class="state" id="feedback-state"></span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </summary>
+        <form id="options">
+            <section>
+                <h3>Tone</h3>
+                <div class="chips">
+                    <label><input type="radio" name="tone" value="positive" checked /><span>Positive</span></label>
+                    <label><input type="radio" name="tone" value="neutral" /><span>Neutral</span></label>
+                    <label><input type="radio" name="tone" value="negative" /><span>Negative</span></label>
+                </div>
+                <p class="hint" id="tone-hint"></p>
+            </section>
+
+            <section>
+                <h3>Forms</h3>
+                <div class="chips">
+                    <label><input type="radio" name="scope" value="all" checked /><span>All, one by one</span></label>
+                    <label><input type="radio" name="scope" value="one" /><span>Open form only</span></label>
+                </div>
+                <p class="hint" id="scope-hint"></p>
+            </section>
+
+            <button class="btn" id="start" type="submit">Start filling</button>
+            <p class="note" id="status" hidden></p>
+        </form>
+        <!-- Instead of the form above once ERP says every feedback form is in. -->
+        <form id="admit" hidden>
+            <button class="btn" id="admit-go" type="submit">Download admit card</button>
+            <p class="note" id="admit-msg" role="status" hidden></p>
+            <p class="hint" id="admit-hint"></p>
+            <div class="chips">
+                <button type="button" id="admit-fill">Fill forms anyway</button>
+            </div>
+        </form>
+    </details>
 
     <footer>
         <a href="https://github.com/ashuwhy/AutoERP" target="_blank">Source</a>

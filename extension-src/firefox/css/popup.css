@@ -40,37 +40,181 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.intro {
-    margin-top: 16px;
+header {
+    margin-bottom: 14px;
+}
+
+/* Each job AutoERP does is one fold, ruled off like the dividers in a file. */
+details {
+    border-top: 1px solid var(--line);
+}
+
+details:last-of-type {
+    border-bottom: 1px solid var(--line);
+}
+
+summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+summary::-webkit-details-marker {
+    display: none;
+}
+
+summary:focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+    border-radius: 8px;
+}
+
+h2 {
+    flex: none;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.state {
+    min-width: 0;
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.state.err {
+    color: var(--red-text);
+    font-weight: 600;
+}
+
+.chev {
+    flex: none;
+    color: var(--muted);
+    transition: transform 160ms ease;
+}
+
+details[open] .chev {
+    transform: rotate(180deg);
+}
+
+summary:hover .chev,
+summary:hover .state:not(.err) {
+    color: var(--ink);
 }
 
 form {
     display: flex;
     flex-direction: column;
-    gap: 22px;
-    margin-top: 22px;
+    gap: 18px;
+    padding: 2px 0 20px;
 }
 
-h2 {
-    margin-bottom: 10px;
-    font-size: 15px;
-    font-weight: 700;
+#login,
+#admit {
+    gap: 12px;
+}
+
+h3 {
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .hint {
-    margin-top: 10px;
     color: var(--muted);
     font-size: 13px;
 }
 
-form .btn {
-    margin-top: 2px;
+section .hint {
+    margin-top: 8px;
+}
+
+.hint:empty {
+    display: none;
+}
+
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.asks {
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.asks label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* The question as ERP wrote it, lined up with the text inside the pill below. */
+.asks span {
+    padding: 0 14px;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#login input {
+    min-width: 0;
+    height: 40px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--ink);
+    font: 500 14px var(--font);
+}
+
+#login input::placeholder {
+    color: var(--muted);
+}
+
+#login input:focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+}
+
+#login-roll,
+#login-for {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    padding-left: 14px;
+    cursor: default;
+    transform: none;
+    font-variant-numeric: tabular-nums;
+}
+
+form[hidden],
+.stack[hidden],
+.chips[hidden],
+.btn[hidden] {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chev {
+        transition: none;
+    }
 }
 
 footer {
     display: flex;
     gap: 16px;
-    margin-top: 18px;
+    margin-top: 16px;
 }
 
 footer a {

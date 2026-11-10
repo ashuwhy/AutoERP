@@ -463,42 +463,11 @@
         $("foot").hidden = false;
     }
 
-    // ERP's own admit card page keeps the roll number, session, semester and exam type in hidden
-    // inputs and loads the PDF from getAdmitCard.htm with them. Its "I have read" checkbox only
-    // unhides the button; the server never sees it. /Acad/StudentAdmitCard.jsp, the old address,
-    // now redirects to noAccess.html.
+    // js/admit.js, which the popup injects just before this file.
     async function downloadAdmitCard() {
         say("Fetching admit card...");
-        try {
-            const page = await fetch("/Academic/StudentAdmitCardDownload.htm", { credentials: "include" });
-            const form = new DOMParser().parseFromString(await page.text(), "text/html");
-            const field = (id) => form.getElementById(id)?.value || "";
-            if (!field("rollno")) throw new Error(`ERP's admit card page did not load (${new URL(page.url).pathname})`);
-            const query = new URLSearchParams({
-                rollno: field("rollno"),
-                ses_no: field("ses_no"),
-                semester: field("semester"),
-                exam_type: field("exam_type"),
-                _ts: Date.now(),
-            });
-            const response = await fetch(`/Academic/getAdmitCard.htm?${query}`, {
-                credentials: "include",
-                referrer: "/Academic/StudentAdmitCardDownload.htm",
-            });
-            const type = response.headers.get("content-type") || "";
-            if (!response.ok || !type.includes("pdf")) throw new Error(`ERP sent ${response.status} ${type}`);
-            const name = `admitcard-${field("ses_no")}-${field("semester")}-${field("exam")}.pdf`.toLowerCase();
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(await response.blob());
-            link.download = name;
-            link.click();
-            say(`Admit card downloaded as ${name}.`, "ok");
-        } catch (error) {
-            say(
-                `Could not download it (${error.message}). Open Academic > Examination TimeTable > DownLoad Admit Card, tick the box and click the button.`,
-                "err"
-            );
-        }
+        const { ok, text } = await window.__autoerpAdmit.download();
+        say(text, ok ? "ok" : "err");
     }
 
     async function cascade() {

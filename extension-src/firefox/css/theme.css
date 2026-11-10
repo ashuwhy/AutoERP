@@ -72,6 +72,7 @@
 
 .btn:not(:disabled):active,
 .chips span:active,
+.chips button:active,
 .round:active {
     transform: scale(0.98);
 }
@@ -92,13 +93,15 @@
     pointer-events: none;
 }
 
-.chips span {
+.chips span,
+.chips button {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 36px;
     padding: 0 12px;
     white-space: nowrap;
+    border: none;
     border-radius: 999px;
     background: var(--card);
     color: var(--ink);
@@ -106,12 +109,14 @@
     cursor: pointer;
 }
 
-.chips input:checked + span {
+.chips input:checked + span,
+.chips .picked {
     background: var(--ink);
     color: var(--paper);
 }
 
 .chips input:focus-visible + span,
+.chips button:focus-visible,
 .btn:focus-visible,
 .round:focus-visible,
 a:focus-visible {
@@ -157,6 +162,7 @@ a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     .btn:not(:disabled):active,
     .chips span:active,
+    .chips button:active,
     .round:active {
         transform: none;
     }
