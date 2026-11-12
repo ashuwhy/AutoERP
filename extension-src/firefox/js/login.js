@@ -6,16 +6,26 @@
 // #answer; typing an answer enables #getotp; Get OTP checks the password and the answer, mails
 // the OTP and only then unlocks #email_otp1. AutoERP walks that far and leaves the OTP to you,
 // then logs in with fetch rather than ERP's form post.
+//
+// It also runs on /IIT_ERP3/forcePasswordChange.htm, where ERP sends a login on a password older
+// than its new policy, and keeps the password you pick there.
 (async () => {
+    // Chrome prerenders a page it expects you to open, from the address bar or a hovered link,
+    // and content scripts run in it. Nothing is filled until it becomes the page you see.
+    if (document.prerendering) {
+        await new Promise((resolve) => document.addEventListener("prerenderingchange", resolve, { once: true }));
+    }
     const field = (id) => document.getElementById(id);
     const { login, session } = await chrome.storage.local.get(["login", "session"]);
-    if (!field("loginForm") || !login?.roll || !login?.password) return;
+    const changing = Boolean(field("forceChangeForm"));
+    if (!login?.roll || !(changing || (field("loginForm") && login.password))) return;
 
     // `session` is AutoERP's own record of a login it made, kept until this page fills again.
     // Landing here from an ERP page while it is still there means you signed out, or ERP timed
     // you out, so filling now would mail an OTP nobody asked for. A reload, or ERP opened fresh
     // (typed, bookmarked, erp.iitkgp.ac.in's own redirect, CDC's link), fills as usual.
-    const reloaded = performance.getEntriesByType("navigation")[0]?.type === "reload";
+    const arrival = performance.getEntriesByType("navigation")[0]?.type;
+    const reloaded = arrival === "reload";
     const cameFrom = document.referrer ? new URL(document.referrer) : null;
     const fromInsideErp =
         cameFrom?.host === location.host && cameFrom.pathname !== "/" && !cameFrom.pathname.startsWith("/SSOAdministration/");
@@ -180,6 +190,7 @@
             }
             if (!refused(reply)) {
                 await chrome.storage.local.set({ session: { at: Date.now() } });
+                await chrome.storage.local.remove("otpAt");
                 return location.assign(reply.url);
             }
             if (otpWrong(reply)) {
@@ -194,6 +205,34 @@
         }
         button.disabled = false;
     }
+
+    // ERP's page posts the form with $.ajax and writes the reply into #alertBox, alert-success for
+    // a password it took. It trims what you type, so the trimmed value is the one kept.
+    async function keepNewPassword() {
+        const roll = field("forceChangeForm").querySelector('input[type="text"]')?.value.trim().toUpperCase();
+        if (roll !== login.roll) return;
+        const box = field("alertBox");
+        let sent = "";
+        if (login.password && !field("old_password").value) field("old_password").value = login.password;
+        field("forceChangeForm").addEventListener("submit", () => (sent = field("new_password").value.trim()));
+        new MutationObserver(async () => {
+            if (!sent || !box.classList.contains("alert-success")) return;
+            const password = sent;
+            sent = "";
+            const { login: now } = await chrome.storage.local.get("login");
+            if (now?.roll !== roll) return;
+            await chrome.storage.local.set({ login: { ...now, password } });
+            say("New password saved in AutoERP. It fills that one from the next login on.", "ok");
+        }).observe(box, { attributes: true, childList: true });
+        await mountCard();
+        $("title").querySelector("small").textContent = "Password";
+        say(
+            login.password
+                ? "ERP wants a new password. AutoERP filled in the current one, so type the new one twice. It is saved once ERP takes it."
+                : "ERP wants a new password. AutoERP saves the new one once ERP takes it.",
+        );
+    }
+    if (changing) return keepNewPassword();
 
     // Caught on the way down, the click never reaches ERP's own handler on the button.
     window.addEventListener(
@@ -265,6 +304,24 @@
     }
     field("answer").value = answer;
     fire(field("answer"), ["input", "change"]);
+
+    // Filling sends nothing; Get OTP sends an email. So it is pressed only for a page you are
+    // looking at: not a tab loading in the background or in a window behind another app, not one
+    // the browser restored at startup, and not twice in ten minutes, which also covers an ERP tab
+    // that times out on screen while you are away. Each of these mailed OTPs nobody asked for.
+    const watched = () => document.visibilityState === "visible" && document.hasFocus();
+    const { otpAt } = await chrome.storage.local.get("otpAt");
+    const minutesAgo = Math.round((Date.now() - (otpAt || 0)) / 60000);
+    if (arrival === "back_forward") {
+        return say("This tab came back from history or a browser restart, so AutoERP did not ask for an OTP. Press Get OTP to log in.");
+    }
+    if (minutesAgo < 10) {
+        return say(`AutoERP asked ERP for an OTP ${minutesAgo ? `${minutesAgo} min` : "moments"} ago. Use that one, or press Get OTP for a new one.`);
+    }
+    if (!(await waitFor(watched, 2000))) {
+        return say("Filled in while you were on another tab or app, so AutoERP did not ask for an OTP. Press Get OTP to log in.");
+    }
+    await chrome.storage.local.set({ otpAt: Date.now() });
     say("Asking ERP for an OTP...");
     field("getotp").click();
 })();

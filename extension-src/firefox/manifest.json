@@ -3,7 +3,7 @@
     "name": "AutoERP",
     "description": "Fills your IIT Kharagpur ERP and CDC login up to the OTP, and your end-semester feedback forms.",
     "homepage_url": "https://github.com/ashuwhy/AutoERP",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "permissions": [
         "scripting",
         "activeTab",
@@ -15,7 +15,8 @@
     "content_scripts": [
         {
             "matches": [
-                "https://erp.iitkgp.ac.in/SSOAdministration/login.htm*"
+                "https://erp.iitkgp.ac.in/SSOAdministration/login.htm*",
+                "https://erp.iitkgp.ac.in/IIT_ERP3/forcePasswordChange.htm*"
             ],
             "js": [
                 "js/login.js"

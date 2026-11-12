@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.2.0 (2026-11-13)
+
+
+### Bug Fixes
+
+* **Login**: AutoERP no longer mails you an OTP from an ERP tab you aren't looking at ([#1](https://github.com/ashuwhy/AutoERP/issues/1)). It still fills the login page anywhere, but presses Get OTP only when the page is in front of you, and at most once in ten minutes. A tab loading in the background, a window behind another app, a tab Chrome or Firefox restored at startup, and a page Chrome loaded ahead while you typed the address now wait for you to press Get OTP
+
+### Features
+
+* **Password change**: when ERP's new security policy sends you to **Mandatory ERP Password Update** after the OTP, AutoERP fills in your current password, and once ERP accepts the new one it saves that in place of the old, so the next login fills the new password
+
 ## 2.1.1 (2026-11-10)
 
 

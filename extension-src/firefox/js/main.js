@@ -428,7 +428,7 @@ document.getElementById("open-erp").addEventListener("click", async () => {
 });
 
 document.getElementById("forget").addEventListener("click", async () => {
-    await chrome.storage.local.remove(["login", "session"]);
+    await chrome.storage.local.remove(["login", "session", "otpAt"]);
     showLogin();
 });
 

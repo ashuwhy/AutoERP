@@ -5,7 +5,7 @@ AutoERP sends nothing to me or to anyone else. What it stores stays on your devi
 **Login**, if you set it up in the popup:
 
 - AutoERP keeps your roll number, ERP password and security answers in the extension's local storage (`chrome.storage.local`) on your device. They are not encrypted there, so anyone who can open your browser profile can read them. **Forget** in the popup deletes them, and so does removing AutoERP.
-- They go only to ERP's own login pages on `https://erp.iitkgp.ac.in/SSOAdministration/`, in the same requests the login page sends when you type them yourself. The popup also sends your roll number there to fetch your security questions.
+- They go only to ERP's own login pages on `https://erp.iitkgp.ac.in/SSOAdministration/`, in the same requests the login page sends when you type them yourself. The popup also sends your roll number there to fetch your security questions. When ERP makes you change your password, AutoERP puts the saved one in the Current Password box of ERP's own form at `https://erp.iitkgp.ac.in/IIT_ERP3/forcePasswordChange.htm`, and keeps the new one you type there once ERP accepts it.
 - You type the OTP. AutoERP sends it to ERP with the rest of the login and never stores it.
 - When ERP turns a login down because another session of yours is still open, AutoERP signs out your other ERP sessions and tries again.
 - After a login it makes, AutoERP stores the time of that login, so it can tell when you have signed out. The next fill deletes it.
