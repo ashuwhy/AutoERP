@@ -230,3 +230,35 @@ footer a:last-child {
 footer a:hover {
     color: var(--ink);
 }
+
+/* Firefox for Android opens the popup as a full page, so it takes the phone's width and
+   finger-sized targets. A desktop popup has a mouse and keeps the 340px above. */
+@media (hover: none) and (pointer: coarse) {
+    body {
+        width: auto;
+        padding: 16px 16px 12px;
+    }
+
+    #login input {
+        height: 48px;
+        font-size: 16px;
+    }
+
+    footer {
+        flex-wrap: wrap;
+        column-gap: 20px;
+        row-gap: 0;
+        margin-top: 8px;
+    }
+
+    footer a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        font-size: 14px;
+    }
+
+    footer a:last-child {
+        margin-left: 0;
+    }
+}

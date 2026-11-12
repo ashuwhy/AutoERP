@@ -4,8 +4,8 @@
 //
 // ERP's own order: blur on #user_id fetches the security question into #question and unlocks
 // #answer; typing an answer enables #getotp; Get OTP checks the password and the answer, mails
-// the OTP and only then unlocks #email_otp1. AutoERP walks that far and leaves the OTP to you,
-// then logs in with fetch rather than ERP's form post.
+// the OTP and only then unlocks #email_otp1. AutoERP fills up to Get OTP and leaves that press to
+// you, as the card's Send OTP, then logs in with fetch rather than ERP's form post.
 //
 // It also runs on /IIT_ERP3/forcePasswordChange.htm, where ERP sends a login on a password older
 // than its new policy, and keeps the password you pick there.
@@ -16,20 +16,9 @@
         await new Promise((resolve) => document.addEventListener("prerenderingchange", resolve, { once: true }));
     }
     const field = (id) => document.getElementById(id);
-    const { login, session } = await chrome.storage.local.get(["login", "session"]);
+    const { login } = await chrome.storage.local.get("login");
     const changing = Boolean(field("forceChangeForm"));
     if (!login?.roll || !(changing || (field("loginForm") && login.password))) return;
-
-    // `session` is AutoERP's own record of a login it made, kept until this page fills again.
-    // Landing here from an ERP page while it is still there means you signed out, or ERP timed
-    // you out, so filling now would mail an OTP nobody asked for. A reload, or ERP opened fresh
-    // (typed, bookmarked, erp.iitkgp.ac.in's own redirect, CDC's link), fills as usual.
-    const arrival = performance.getEntriesByType("navigation")[0]?.type;
-    const reloaded = arrival === "reload";
-    const cameFrom = document.referrer ? new URL(document.referrer) : null;
-    const fromInsideErp =
-        cameFrom?.host === location.host && cameFrom.pathname !== "/" && !cameFrom.pathname.startsWith("/SSOAdministration/");
-    const signedOut = Boolean(session) && fromInsideErp && !reloaded;
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const fire = (el, types) =>
@@ -58,7 +47,12 @@
         .head { display: flex; align-items: center; gap: 10px; }
         .title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
         .title .wordmark { height: 20px; }
-        .title small { color: var(--muted); font-size: 12px; }`;
+        .title small { color: var(--muted); font-size: 12px; }
+        /* On a phone a corner card covers the form it is filling, so it sits across the top. */
+        @media (max-width: 600px) {
+            .card { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; width: auto;
+                    gap: 10px; padding: 14px 16px 16px; border-radius: 20px; }
+        }`;
 
     const CARD_HTML = `
         <section class="card" aria-label="AutoERP">
@@ -67,6 +61,7 @@
                 <button class="round" id="close" aria-label="Close AutoERP">${CROSS}</button>
             </div>
             <p class="note" id="msg" role="status" aria-live="polite"></p>
+            <button class="btn" id="send" hidden>Send OTP</button>
         </section>`;
 
     const cardHost = document.createElement("div");
@@ -117,7 +112,7 @@
                 await chrome.storage.local.set({ login: now });
             }
             answerByHand();
-            return say("ERP says that answer is wrong. Type the right one and press Get OTP; AutoERP keeps the one that works.", "err");
+            return say("ERP says that answer is wrong. Type the right one and press Send OTP; AutoERP keeps the one that works.", "err");
         }
         if (/password/i.test(message) && now?.password === field("password").value) {
             delete now.password;
@@ -130,7 +125,7 @@
     // Whoever pressed Get OTP, AutoERP or you, the answer that ERP accepts is the one kept.
     async function awaitOtp(question, answer) {
         const title = await waitFor(() => document.querySelector(".swal2-title")?.textContent.trim(), 20000);
-        if (!title) return say("ERP did not answer the OTP request. Press Get OTP to try again.", "err");
+        if (!title) return say("ERP did not answer the OTP request. Press Send OTP to try again.", "err");
         const message = document.querySelector(".swal2-html-container")?.textContent.trim() || "";
         // The page's own test for a refusal, in getEmailOTP().
         if (`${title} ${message}`.toLowerCase().includes("unable to send otp")) return otpRefused(question, answer, message);
@@ -140,6 +135,7 @@
         await waitFor(() => !document.querySelector(".swal2-container"));
         field("email_otp1").focus();
         say("OTP sent to your email. Type it in the OTP box and press Enter.", "ok");
+        return true;
     }
 
     // Firefox sends a content script's own fetch as the extension; content.fetch is the page's.
@@ -163,7 +159,7 @@
     function refusal(reply) {
         const page = new DOMParser().parseFromString(reply.text, "text/html");
         if (page.getElementById("loginForm")) {
-            return "ERP sent its login page back without a reason, even after signing out other sessions. Press Get OTP for a new OTP and try again.";
+            return "ERP sent its login page back without a reason, even after signing out other sessions. Press Send OTP for a new OTP and try again.";
         }
         return `ERP did not log you in. ${page.body.textContent.replace(/\s+/g, " ").trim().slice(0, 200)}`;
     }
@@ -188,16 +184,13 @@
                 await post("clearAllSessions.htm", new URLSearchParams({ user_code: form.get("user_id") }).toString());
                 reply = await post("auth.htm", form.toString());
             }
-            if (!refused(reply)) {
-                await chrome.storage.local.set({ session: { at: Date.now() } });
-                await chrome.storage.local.remove("otpAt");
-                return location.assign(reply.url);
-            }
+            if (!refused(reply)) return location.assign(reply.url);
             if (otpWrong(reply)) {
                 otpBox.value = "";
                 otpBox.focus();
                 say("ERP says that OTP is wrong. Type it again and press Enter.", "err");
             } else {
+                $("send").hidden = false;
                 say(refusal(reply), "err");
             }
         } catch {
@@ -273,9 +266,6 @@
         field("toggleAnswer")?.remove();
     }
 
-    field("getotp").addEventListener("click", () =>
-        awaitOtp(questionKey(field("question").textContent), field("answer").value),
-    );
     // Log In is a plain button, so Enter in a field does nothing on ERP's page.
     field("email_otp1").addEventListener("keydown", (event) => {
         if (event.key !== "Enter") return;
@@ -284,9 +274,21 @@
     });
 
     await mountCard();
-    if (signedOut) return say("Signed out of ERP. AutoERP logs you in again when you reload this page.");
-    await chrome.storage.local.remove("session");
-    say(`Logging in as ${login.roll}...`);
+    // Get OTP mails an OTP, and every time AutoERP pressed it on its own, someone got one they never
+    // asked for: a tab loading behind others, a restored session, the login page after signing out.
+    field("getotp").addEventListener("click", async () => {
+        $("send").disabled = true;
+        const sent = await awaitOtp(questionKey(field("question").textContent), field("answer").value);
+        $("send").disabled = false;
+        $("send").hidden = Boolean(sent);
+    });
+    // A click on a disabled button fires nothing, and ERP keeps Get OTP disabled until there is an answer.
+    $("send").addEventListener("click", () => {
+        if (!field("getotp").disabled) return field("getotp").click();
+        field("answer").focus();
+        say("Type the security answer first, then press Send OTP.", "err");
+    });
+    say(`Filling in ${login.roll}...`);
     field("user_id").value = login.roll;
     field("password").value = login.password;
     fire(field("password"), ["input", "change"]);
@@ -295,33 +297,16 @@
     if (!(await waitFor(() => !field("answer").readOnly, 10000))) {
         return say("ERP did not show a security question. Check the roll number saved in AutoERP, then reload this page.", "err");
     }
+    $("send").hidden = false;
     const answer = login.answers?.[questionKey(field("question").textContent)];
     if (!answer) {
         answerByHand();
-        say("New security question. Type its answer and press Get OTP; AutoERP keeps it for next time.");
+        say("New security question. Type its answer and press Send OTP; AutoERP keeps it for next time.");
         field("answer").focus();
         return;
     }
     field("answer").value = answer;
     fire(field("answer"), ["input", "change"]);
 
-    // Filling sends nothing; Get OTP sends an email. So it is pressed only for a page you are
-    // looking at: not a tab loading in the background or in a window behind another app, not one
-    // the browser restored at startup, and not twice in ten minutes, which also covers an ERP tab
-    // that times out on screen while you are away. Each of these mailed OTPs nobody asked for.
-    const watched = () => document.visibilityState === "visible" && document.hasFocus();
-    const { otpAt } = await chrome.storage.local.get("otpAt");
-    const minutesAgo = Math.round((Date.now() - (otpAt || 0)) / 60000);
-    if (arrival === "back_forward") {
-        return say("This tab came back from history or a browser restart, so AutoERP did not ask for an OTP. Press Get OTP to log in.");
-    }
-    if (minutesAgo < 10) {
-        return say(`AutoERP asked ERP for an OTP ${minutesAgo ? `${minutesAgo} min` : "moments"} ago. Use that one, or press Get OTP for a new one.`);
-    }
-    if (!(await waitFor(watched, 2000))) {
-        return say("Filled in while you were on another tab or app, so AutoERP did not ask for an OTP. Press Get OTP to log in.");
-    }
-    await chrome.storage.local.set({ otpAt: Date.now() });
-    say("Asking ERP for an OTP...");
-    field("getotp").click();
+    say(`Filled in ${login.roll}. Press Send OTP and ERP mails you the OTP.`);
 })();

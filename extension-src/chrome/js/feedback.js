@@ -249,7 +249,12 @@
         li.active .who { font-weight: 700; }
         li.pending .who { color: var(--muted); }
         li.failed .meta { color: var(--red-text); }
-        .progress[hidden], .foot[hidden] { display: none; }`;
+        .progress[hidden], .foot[hidden] { display: none; }
+        /* On a phone a corner card covers the form it is filling, so it sits across the top. */
+        @media (max-width: 600px) {
+            .card { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; width: auto;
+                    gap: 10px; padding: 14px 16px 16px; border-radius: 20px; max-height: 45dvh; }
+        }`;
 
     const PANEL_HTML = `
         <section class="card" aria-label="AutoERP">

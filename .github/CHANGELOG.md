@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## Unreleased
+
+
+### Changes
+
+* **Login**: AutoERP no longer presses Get OTP by itself. It fills the roll number, password and security answer, and a **Send OTP** button on its card asks ERP for the OTP when you press it. Signing out of ERP used to land on a login page that filled itself and mailed an OTP straight away; now nothing is mailed until you ask, wherever the page comes from
+
+### Features
+
+* **Firefox for Android**: the popup fills the phone screen with larger buttons and inputs, and the login and feedback cards sit full width across the top of the page, clear of ERP's Log In button, the OTP box and the keyboard
+
 ## 2.2.0 (2026-11-13)
 
 

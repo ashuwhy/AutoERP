@@ -38,10 +38,10 @@ AutoERP is on [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/a
 **Login**
 
 1. Click the AutoERP icon and open **Login**. Type your roll number and ERP password, press **Continue**, answer the three security questions ERP sends back and press **Save login**.
-2. Open ERP or CDC (or press **Open ERP**). AutoERP fills the roll number, password and security answer, and asks ERP to mail you the OTP.
+2. Open ERP or CDC (or press **Open ERP**). AutoERP fills the roll number, password and security answer. Press **Send OTP** on its card and ERP mails you the OTP.
 3. Type the OTP and press `Enter`.
 
-AutoERP asks for the OTP only on a login page in front of you, and at most once in ten minutes. A tab that loaded in the background or came back after a browser restart is filled, and you press Get OTP. If ERP asks you for a new password after the OTP, AutoERP fills the current one and saves the new one once ERP accepts it.
+AutoERP never asks for an OTP by itself, so a tab loading in the background, a restored session or the login page after you sign out mails you nothing. If ERP asks you for a new password after the OTP, AutoERP fills the current one and saves the new one once ERP accepts it.
 
 Once you log out, AutoERP leaves the login page alone until you reload it. Your login stays on your computer, unencrypted, and goes only to ERP's login and password-change pages.
 

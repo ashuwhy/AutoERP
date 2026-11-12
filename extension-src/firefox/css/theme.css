@@ -159,6 +159,19 @@ a:focus-visible {
     display: none;
 }
 
+/* A finger needs more room than a mouse: Firefox for Android's popup and the cards on ERP. */
+@media (hover: none) and (pointer: coarse) {
+    .chips span,
+    .chips button {
+        height: 44px;
+    }
+
+    .round {
+        width: 40px;
+        height: 40px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .btn:not(:disabled):active,
     .chips span:active,
