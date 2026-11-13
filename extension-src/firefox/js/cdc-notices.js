@@ -28,6 +28,8 @@ cdcSwitch(async (wanted) => {
             .cat { flex-direction: row; align-items: center; }
         }`;
 
+    // #back is how ERP itself moves between the two pages, a relative link in the same frame. A fresh load,
+    // not history.back(): ERP answers one grid query per session, and the company page re-registers its own.
     const HTML = `
         <section class="card" aria-label="AutoERP notice board">
             <div class="top">
@@ -44,7 +46,10 @@ cdcSwitch(async (wanted) => {
                     </div>
                     <span class="muted" id="mine-why" hidden>Open the company page first</span>
                 </div>
-                <div class="head"><small id="count"></small></div>
+                <div class="head">
+                    <small id="count"></small>
+                    <a class="link" id="back" href="TPStudent.jsp">Back to company board</a>
+                </div>
             </div>
             <div class="bar chips" id="cats"><button data-cat="" class="picked">All</button></div>
             <p class="note err" id="msg" role="status" aria-live="polite" hidden></p>
@@ -94,10 +99,7 @@ cdcSwitch(async (wanted) => {
             hay: `${subject} ${text}`.toLowerCase(),
         };
     });
-    if (!notices.length) {
-        say("ERP sent no rows. Reload this page.");
-        return stop;
-    }
+    if (cdcNoRows(54, notices.length, say)) return stop;
 
     const newest = Math.max(...notices.map((n) => n.serial).filter(Number.isFinite));
     if (Number.isFinite(newest)) await chrome.storage.local.set({ cdcLastNotice: newest });

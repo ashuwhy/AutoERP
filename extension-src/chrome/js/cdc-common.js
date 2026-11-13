@@ -94,6 +94,24 @@ function cdcRows(xml, columns) {
     );
 }
 
+// ERP seems to answer only the grid of the CDC page it drew last, and the browser's Back can bring a page
+// out of the cache without ERP drawing it, so feed n comes back empty and so does ERP's own grid. A reload
+// makes ERP draw the page. One per page a minute, per tab: an empty answer right after the reload is real
+// and gets the message. Rows clear the stamp, so the next Back inside the minute reloads again.
+function cdcNoRows(n, count, say) {
+    const key = `autoerp-cdc-reload-${n}`;
+    if (count) {
+        sessionStorage.removeItem(key);
+        return false;
+    }
+    if (Date.now() - Number(sessionStorage.getItem(key)) < 60000) say("ERP sent no rows. Reload this page.");
+    else {
+        sessionStorage.setItem(key, String(Date.now()));
+        location.reload();
+    }
+    return true;
+}
+
 // ERP cells carry onclick='TPJNFView("3","171","2026-2027");'. The board rebuilds that call for
 // its own buttons, so every argument has to be a plain word or the row gets no button at all.
 const CDC_ARG = /^(["']?)([\w-]+)\1$/;
@@ -166,9 +184,11 @@ const CDC_CSS = `
     * { box-sizing: border-box; margin: 0; }
     .card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 4px; border: 1px solid var(--line);
             border-radius: 10px; background: var(--paper); color: var(--ink); font: 13px/1.45 var(--font); text-align: left; }
-    .top { display: flex; align-items: center; gap: 10px 12px; }
-    .top > .bar { flex: 1 1 0; min-width: 0; }
-    .head { display: flex; align-items: center; gap: 12px; flex: none; }
+    /* The bar's floor is its widest piece, the tab group, so in a narrow frame the head wraps under the filters
+       instead of squeezing the tabs into a column. */
+    .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+    .top > .bar { flex: 1 1 0; }
+    .head { display: flex; align-items: center; gap: 12px; flex: none; margin-left: auto; }
     .head small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
     .head .wordmark { height: 12px; color: #a1a1aa; }
     .head .wordmark .auto { fill: currentColor; }
@@ -185,7 +205,7 @@ const CDC_CSS = `
     .chips button[aria-pressed="true"]::before { border-color: var(--ink);
         background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5.2 4.2 7.4 8 2.8'/%3E%3C/svg%3E") center no-repeat; }
     .chips button:disabled, .seg button:disabled { opacity: 0.45; cursor: default; }
-    .seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border-radius: 8px; background: var(--card); }
+    .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--card); }
     .seg button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: none; border-radius: 6px;
                   background: none; color: var(--muted); font: 500 13px var(--font); white-space: nowrap; cursor: pointer; }
     .seg button:not(.picked):not(:disabled):hover { color: var(--ink); }

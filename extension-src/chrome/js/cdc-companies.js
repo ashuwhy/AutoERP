@@ -22,6 +22,7 @@ cdcSwitch(async (wanted) => {
         li .left { font-variant-numeric: tabular-nums; white-space: nowrap; }
         li .left.soon { color: var(--red-text); font-weight: 600; }
         #refresh { font-variant-numeric: tabular-nums; }
+        #ics:disabled { opacity: 0.45; color: var(--muted); cursor: default; }
         @media (max-width: 760px) {
             .cols, ol > li { grid-template-columns: auto minmax(0, 1fr) 104px 88px; grid-template-areas: "who who stat act" "ctc left stat act"; }
             .cols .ctc, .cols .left { display: none; }
@@ -41,7 +42,10 @@ cdcSwitch(async (wanted) => {
                     <div class="chips"><button id="hide" class="picked" aria-pressed="true">Hide not eligible</button></div>
                     <button class="link" id="hidden" hidden></button>
                 </div>
-                <div class="head"><button class="link" id="refresh">Check eligibility again</button></div>
+                <div class="head">
+                    <button class="link" id="ics" title="An .ics of every role you can apply to now. Apple Calendar and Outlook keep its reminders 3 h and 30 min before; Google Calendar uses its own.">Add deadlines to calendar</button>
+                    <button class="link" id="refresh">Check eligibility again</button>
+                </div>
             </div>
             <p class="note err" id="msg" role="status" aria-live="polite" hidden></p>
             <div class="cols" aria-hidden="true"><span class="who">Company and role</span><span class="ctc">CTC</span><span class="left" id="col-left">Closes in</span><span class="stat">Status</span><span class="act"></span></div>
@@ -96,10 +100,7 @@ cdcSwitch(async (wanted) => {
             end: istTime(cells[10]?.textContent || ""),
         };
     });
-    if (!roles.length) {
-        say("ERP sent no rows. Reload this page.");
-        return stop;
-    }
+    if (cdcNoRows(37, roles.length, say)) return stop;
 
     const tabOf = (r) => (r.start > now() ? "soon" : r.end < now() ? "closed" : "open");
     let lastTab = new Map(roles.map((r) => [r, tabOf(r)]));
@@ -137,6 +138,71 @@ cdcSwitch(async (wanted) => {
         if (v?.verdict === "check") return { cls: "check", text: "Check on ERP", why: v.sentence };
         if (checking.has(r.key)) return { cls: "checking", text: "Checking" };
         return { cls: "check", text: "Check on ERP" };
+    }
+
+    // The calendar holds every open role that reads Can apply, whatever tab, search or hide shows.
+    // An Opens soon role can carry a kept Can apply verdict, but ERP takes no application before the start.
+    const due = () => roles.filter((r) => tabOf(r) === "open" && chipOf(r).cls === "can" && !isNaN(r.end));
+    function syncIcs() {
+        $("ics").disabled = checking.size > 0 || !due().length;
+    }
+
+    // RFC 5545 by hand. Times go out in UTC, so no VTIMEZONE block and every calendar shows local time.
+    // IST is +5:30 all year, so the closing time is shifted by hand: Chrome's ICU writes "Sept" for en-GB.
+    const ist = 5.5 * 3600000;
+    const stamp = (ms) => new Date(ms).toISOString().replace(/[-:]|\.\d{3}/g, "");
+    const escaped = (text) => text.replace(/[\\;,]/g, "\\$&").replace(/\n/g, "\\n");
+
+    function closes(ms) {
+        const d = new Date(ms + ist);
+        const h = d.getUTCHours();
+        const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()];
+        return `${d.getUTCDate()} ${month} ${d.getUTCFullYear()}, ${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, "0")} ${h < 12 ? "AM" : "PM"} IST`;
+    }
+
+    // 75 octets on the first line, then a space and 74 more, cut between code points, never inside one.
+    function fold(line) {
+        let out = "";
+        let room = 75;
+        for (const ch of line) {
+            const cp = ch.codePointAt(0);
+            const octets = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+            if (octets > room) {
+                out += "\r\n ";
+                room = 74;
+            }
+            out += ch;
+            room -= octets;
+        }
+        return `${out}\r\n`;
+    }
+
+    function calendar() {
+        const at = now();
+        const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AutoERP//CDC deadlines//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+        for (const r of due()) {
+            const summary = escaped(`Apply: ${r.company} - ${r.role}`);
+            const alarm = (before) => ["BEGIN:VALARM", "ACTION:DISPLAY", `TRIGGER:-${before}`, `DESCRIPTION:${summary}`, "END:VALARM"];
+            const ctc = r.ctc ? ` CTC ${r.ctc}.` : "";
+            lines.push(
+                "BEGIN:VEVENT",
+                `UID:${r.key}@autoerp`,
+                `DTSTAMP:${stamp(at)}`,
+                // Same UID in a later file: the higher sequence wins in Outlook, so an extended deadline moves.
+                `SEQUENCE:${Math.floor((at - Date.UTC(2026, 0, 1)) / 60000)}`,
+                `DTSTART:${stamp(r.end)}`,
+                `DTEND:${stamp(r.end)}`,
+                `SUMMARY:${summary}`,
+                `DESCRIPTION:${escaped(`Applications close ${closes(r.end)}.${ctc}\nApply on ERP: CDC > Application of Placement/Internship.`)}`,
+                `URL:${location.origin}${location.pathname}`,
+                "TRANSP:TRANSPARENT",
+                ...alarm("PT3H"),
+                ...alarm("PT30M"),
+                "END:VEVENT"
+            );
+        }
+        lines.push("END:VCALENDAR");
+        return lines.map(fold).join("");
     }
 
     function duration(ms) {
@@ -220,12 +286,14 @@ cdcSwitch(async (wanted) => {
         $("roles").replaceChildren(...shown.map(row));
         $("none").hidden = shown.length > 0;
         $("none").textContent = { open: "No roles open right now", soon: "No roles opening soon", closed: "No closed roles yet" }[tab];
+        syncIcs();
     }
 
     // An answer from ERP swaps its row in place and never adds or removes one, so the list does not
     // jump under the pointer. A row that turned Not eligible leaves at the next render the student causes.
     function redraw(r) {
         [...$("roles").children].find((el) => el.dataset.key === r.key)?.replaceWith(row(r));
+        syncIcs();
     }
 
     // A role that crosses its start or end with the page open changes tab; one that just opened is
@@ -339,11 +407,21 @@ cdcSwitch(async (wanted) => {
         hide = false;
         render();
     });
+    // A data: link clicked from the board itself; Firefox has needed the link to sit in a document.
+    $("ics").addEventListener("click", () => {
+        const link = document.createElement("a");
+        link.href = `data:text/calendar;charset=utf-8,${encodeURIComponent(calendar())}`;
+        link.download = `autoerp-deadlines-${new Date(now() + ist).toISOString().slice(0, 10)}.ics`;
+        shadow.append(link);
+        link.click();
+        link.remove();
+    });
     // Kept verdicts stay on the rows while they are asked again, so the button carries the count,
     // held at its idle width so the search box beside it does not move.
     $("refresh").addEventListener("click", async () => {
         if (checking.size || signedOut) return;
         const queue = queueUp(true);
+        syncIcs();
         if (!queue.length) return;
         const button = $("refresh"), total = queue.length;
         let done = 0;

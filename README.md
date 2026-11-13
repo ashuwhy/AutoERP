@@ -61,6 +61,7 @@ Open CDC's company page or notice board in ERP and AutoERP puts its own board ab
 
 - Companies: **Open now**, **Opens soon** and **Closed** tabs, open roles by deadline with a countdown, the CTC as "18.15 L", and ERP's own verdict for each role: Applied, Can apply, Not eligible (with ERP's reason) or Check on ERP. Roles ERP says you aren't eligible for are hidden behind a count you can click. Roles added since your last visit say NEW.
 - Notices: the full text of every notice, search, category and Placement/Internship filters, NEW since your last visit, and **My companies** for notices about the companies you applied to.
+- Calendar: **Add deadlines to calendar** on the company board downloads an .ics with every deadline you can apply to now. Apple Calendar and Outlook remind you 3 h and 30 min before; Google Calendar takes it through **Settings > Import & export** and uses its own reminders.
 
 The company board keeps up while the page stays open: when you close ERP's role dialog, from its grid or from **Role page**, AutoERP asks ERP about that role again, so Apply or Cancel apply shows at once, and a role moves tab when its deadline passes or it opens. **Show boards** in the popup's **CDC boards** fold turns both boards off; **Forget CDC data** beside it deletes what they stored.
 

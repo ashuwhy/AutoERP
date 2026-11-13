@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2.4.0 (2026-11-13)
+
+
+### Features
+
+* **CDC company board**: **Add deadlines to calendar** downloads an .ics with one event at the deadline of every role that reads Can apply on Open now, whichever tab, search or filter you have on. Apple Calendar and Outlook keep its reminders 3 h and 30 min before; Google Calendar takes the file through Settings > Import & export and uses its own reminders. The file comes from what the board already holds, so the click asks ERP for nothing, and the button waits while AutoERP is still checking roles
+* **CDC notice board**: **Back to company board** in its header opens CDC's company page, the way ERP's own link goes the other way
+
+### Fixes
+
+* **CDC boards**: going back to a board with the browser's Back button no longer leaves it empty with "ERP sent no rows. Reload this page." When ERP sends no rows, AutoERP reloads the page once, and shows that message only if the reload comes back empty too
+* **CDC boards**: in a narrow window the links in the board's header move under the filters, right-aligned, instead of squeezing the tabs into a column
+
 ## 2.3.1 (2026-11-13)
 
 
