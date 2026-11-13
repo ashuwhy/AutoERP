@@ -151,7 +151,9 @@ cdcSwitch(async (wanted) => {
     // IST is +5:30 all year, so the closing time is shifted by hand: Chrome's ICU writes "Sept" for en-GB.
     const ist = 5.5 * 3600000;
     const stamp = (ms) => new Date(ms).toISOString().replace(/[-:]|\.\d{3}/g, "");
-    const escaped = (text) => text.replace(/[\\;,]/g, "\\$&").replace(/\n/g, "\\n");
+    // A character reference in ERP's feed can carry a CR, a control or U+2028 into a name; lenient parsers
+    // break lines on all of them.
+    const escaped = (text) => text.replace(/[\\;,]/g, "\\$&").replace(/\r\n?|\n/g, "\\n").replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f\u2028\u2029]/g, "");
 
     function closes(ms) {
         const d = new Date(ms + ist);

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2.4.1 (2026-11-13)
+
+
+### Fixes
+
+* **CDC company board**: a carriage return or other control character in a company, role or CTC from ERP (ERP can send one as a character reference) no longer starts a new line in the calendar file, where a lenient calendar app could read it as an extra field or event. Line breaks become `\n` and other controls are dropped
+
 ## 2.4.0 (2026-11-13)
 
 
