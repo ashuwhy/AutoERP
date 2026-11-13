@@ -85,6 +85,21 @@
         </form>
     </details>
 
+    <details name="job" id="cdc-group">
+        <summary>
+            <h2>CDC boards</h2>
+            <span class="state" id="cdc-state"></span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </summary>
+        <form id="cdc">
+            <div class="chips">
+                <button type="button" id="cdc-on" role="switch" aria-checked="false">Show boards</button>
+                <button type="button" id="forget-cdc" hidden>Forget CDC data</button>
+            </div>
+            <p class="hint">Sorts CDC's company and notice pages. Off: AutoERP draws nothing there and fetches nothing.</p>
+        </form>
+    </details>
+
     <footer>
         <a href="https://github.com/ashuwhy/AutoERP" target="_blank">Source</a>
         <a href="https://github.com/ashuwhy/AutoERP/blob/main/PRIVACY.md" target="_blank">Privacy</a>

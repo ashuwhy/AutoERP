@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## 2.3.0 (2026-11-13)
 
 
 ### Changes
@@ -9,6 +9,11 @@
 
 ### Features
 
+* **CDC company board**: on CDC's company page, a board above ERP's grid sorts roles into Open now, Opens soon and Closed, with a countdown to each deadline, the CTC in lakhs, and ERP's own verdict from each role's page: Applied, Can apply, Not eligible or Check on ERP. Roles ERP says you aren't eligible for are hidden behind a count, roles added since your last visit say NEW, and **Role page** opens ERP's page for the role. Desktop only
+* **CDC notice board**: on CDC's notice board, every notice with its full text, search, category and Placement/Internship filters, NEW since your last visit, and My companies for notices about the companies you applied to. Desktop only
+* **CDC boards stay current**: close ERP's role dialog after you apply or cancel and that row changes to Applied or Can apply without a reload, whichever button opened it. A role whose deadline passes, or that opens, while the page is up moves to its new tab and is checked once it opens
+* **CDC boards hold still**: each board appears once, already drawn, and rows keep their place and height while AutoERP checks them. A role that turns Not eligible stays in view until you change tab, search or filter, and ERP's reason for Check on ERP sits on the role line, full text on hover. **Check eligibility again** keeps the old verdicts on screen and counts the new answers in on its own label
+* **CDC boards switch**: a **CDC boards** fold in the popup turns both boards off (Off: AutoERP draws nothing on CDC's pages and fetches nothing) and holds **Forget CDC data**, so the Login fold's **Forget** only forgets the login
 * **Firefox for Android**: the popup fills the phone screen with larger buttons and inputs, and the login and feedback cards sit full width across the top of the page, clear of ERP's Log In button, the OTP box and the keyboard
 
 ## 2.2.0 (2026-11-13)

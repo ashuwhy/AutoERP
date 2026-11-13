@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center">Fills your IIT Kharagpur ERP and CDC login up to the OTP,<br>and your end-semester feedback forms.</p>
+<p align="center">Fills your IIT Kharagpur ERP and CDC login up to the OTP and your feedback forms,<br>and sorts CDC's company and notice boards.</p>
 
 <p align="center">
   <a href="https://github.com/ashuwhy/AutoERP/releases/latest/download/autoerp-chrome.zip"><img src="brand/readme/download-chrome.svg" alt="Download for Chrome" height="48"></a>
@@ -54,6 +54,17 @@ Once you log out, AutoERP leaves the login page alone until you reload it. Your 
 The tone sets the ratings, pace, workload and the written answers, and every written answer stays inside ERP's 10-50 word limit. **Open form only** fills just the form in front of you, if you want a different tone for one teacher.
 
 Once ERP has every form, the fold shows **Download admit card** instead.
+
+**CDC boards**
+
+Open CDC's company page or notice board in ERP and AutoERP puts its own board above ERP's grid, which stays where it was.
+
+- Companies: **Open now**, **Opens soon** and **Closed** tabs, open roles by deadline with a countdown, the CTC as "18.15 L", and ERP's own verdict for each role: Applied, Can apply, Not eligible (with ERP's reason) or Check on ERP. Roles ERP says you aren't eligible for are hidden behind a count you can click. Roles added since your last visit say NEW.
+- Notices: the full text of every notice, search, category and Placement/Internship filters, NEW since your last visit, and **My companies** for notices about the companies you applied to.
+
+The company board keeps up while the page stays open: when you close ERP's role dialog, from its grid or from **Role page**, AutoERP asks ERP about that role again, so Apply or Cancel apply shows at once, and a role moves tab when its deadline passes or it opens. **Show boards** in the popup's **CDC boards** fold turns both boards off; **Forget CDC data** beside it deletes what they stored.
+
+**Role page** and **Attachment** open ERP's own role page and file, as ERP's grid does. AutoERP never applies, cancels or picks a CV for you; you still press Apply on ERP. Desktop Chrome and Firefox only.
 
 AutoERP does not solve the captcha or read your mail for the OTP, only talks to `erp.iitkgp.ac.in`, and sends nothing to me or anyone else. See [PRIVACY.md](./PRIVACY.md).
 

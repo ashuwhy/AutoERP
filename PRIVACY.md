@@ -16,8 +16,15 @@ AutoERP sends nothing to me or to anyone else. What it stores stays on your devi
 - When you open the popup with an ERP tab open, AutoERP asks ERP, from that tab, whether your feedback forms are submitted. The popup remembers the count of forms and pending ones, plus your last tone and form choice, in the extension's local storage.
 - **Download admit card** fetches the PDF from ERP's own admit card page.
 
+**CDC boards:**
+
+- On CDC's company page (`TPStudent.jsp`), AutoERP reads the page's own list of companies and roles from ERP, and fetches each open or upcoming role's page from ERP in the background (`TPJNFView.jsp`, with your roll number from the page) to read the line where ERP says whether you can apply. When you close ERP's role dialog, it asks that one role's page again, so a role you just applied to or cancelled shows it. It never presses Apply or Cancel and never picks a CV.
+- On CDC's notice board (`Notice.jsp`), it reads the page's own list of notices from ERP. It never reads the coordinators' roll numbers in that list.
+- It stores on your device, in the extension's local storage: the roles it has seen (so new ones say NEW), ERP's verdict for each role it checked, the names of the companies you applied to (so the notice board can filter to them) and the number of the newest notice you have seen. **Forget CDC data** in the popup's **CDC boards** fold deletes them.
+- **Show boards** in the same fold turns the boards off. Off, AutoERP draws nothing on CDC's pages and fetches nothing from them. It stores that choice, and CDC data already stored stays until **Forget CDC data**.
+
 No analytics, no tracking, no remote code, no third-party services.
 
 Questions or problems: [open an issue](https://github.com/ashuwhy/AutoERP/issues) or reach me at [ashuwhy.com](https://ashuwhy.com).
 
-Last updated 2026-11-10.
+Last updated 2026-11-13.

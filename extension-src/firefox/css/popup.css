@@ -119,7 +119,8 @@ form {
 }
 
 #login,
-#admit {
+#admit,
+#cdc {
     gap: 12px;
 }
 
@@ -201,6 +202,7 @@ section .hint {
 form[hidden],
 .stack[hidden],
 .chips[hidden],
+.chips button[hidden],
 .btn[hidden] {
     display: none;
 }

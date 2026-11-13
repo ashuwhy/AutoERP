@@ -432,6 +432,31 @@ document.getElementById("forget").addEventListener("click", async () => {
     showLogin();
 });
 
+const CDC_KEYS = ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice"];
+
+// The boards are on until you switch them off. The CDC scripts hear the change themselves.
+async function showCdc() {
+    const stored = await chrome.storage.local.get(["cdcOn", ...CDC_KEYS]);
+    const on = stored.cdcOn !== false;
+    document.getElementById("cdc-state").textContent = on ? "On" : "Off";
+    document.getElementById("cdc-on").classList.toggle("picked", on);
+    document.getElementById("cdc-on").setAttribute("aria-checked", String(on));
+    document.getElementById("forget-cdc").hidden = !CDC_KEYS.some((key) => key in stored);
+}
+
+document.getElementById("cdc-on").addEventListener("click", async () => {
+    const { cdcOn } = await chrome.storage.local.get("cdcOn");
+    await chrome.storage.local.set({ cdcOn: cdcOn === false });
+    showCdc();
+});
+
+document.getElementById("forget-cdc").addEventListener("click", async () => {
+    await chrome.storage.local.remove(CDC_KEYS);
+    showCdc();
+});
+
+showCdc();
+
 for (const group of document.querySelectorAll("details")) {
     group.addEventListener("toggle", () => remember({ open: document.querySelector("details[open]")?.id || "" }));
 }
