@@ -8,7 +8,7 @@
 <p align="center">Fills your IIT Kharagpur ERP and CDC login up to the OTP and your feedback forms,<br>and sorts CDC's company and notice boards.</p>
 
 <p align="center">
-  <a href="https://github.com/ashuwhy/AutoERP/releases/latest/download/autoerp-chrome.zip"><img src="brand/readme/download-chrome.svg" alt="Download for Chrome" height="48"></a>
+  <a href="https://chromewebstore.google.com/detail/bpdkkgmlmgflbmbmhjhojeiokgdjhblk"><img src="brand/readme/add-chrome.svg" alt="Add to Chrome" height="48"></a>
   &nbsp;
   <a href="https://addons.mozilla.org/en-US/firefox/addon/autoerp/"><picture><source media="(prefers-color-scheme: dark)" srcset="brand/readme/add-firefox-dark.svg"><img src="brand/readme/add-firefox.svg" alt="Add to Firefox" height="48"></picture></a>
 </p>
@@ -23,11 +23,11 @@
 
 **Chrome, Edge, Brave, Arc**
 
-1. Download `autoerp-chrome.zip` with the button above.
-2. Open `chrome://extensions` and turn on **Developer mode**, top right.
-3. Drag the zip onto that page. No need to unzip it.
+AutoERP is on the [Chrome Web Store](https://chromewebstore.google.com/detail/bpdkkgmlmgflbmbmhjhojeiokgdjhblk). Open it, click **Add to Chrome**, and your browser keeps it updated from then on. Edge first asks you to **Allow extensions from other stores**.
 
-If your browser won't take the zip, unzip it and pick the `autoerp-chrome` folder with **Load unpacked**. To update, remove the old AutoERP before you drop in the new zip, or you'll have two. Removing it deletes your saved login too, so set that up again after.
+If you have Enhanced protection on in Chrome's Safe Browsing settings, Chrome says "Proceed with caution" before it installs. My developer account is new, and Chrome drops that warning once an account has kept to the store's policies for a few months.
+
+Loaded the zip from GitHub before? Remove that copy in `chrome://extensions` first, or you'll have two. Removing it deletes your saved login, so save it again in the store copy.
 
 **Firefox**
 

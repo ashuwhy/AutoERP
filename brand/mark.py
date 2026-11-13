@@ -103,7 +103,7 @@ def icon(padding=0, small=False):
 
 
 def button(label, fill, text):
-    """The popup's Start button as an SVG, for the README's download links. GitHub shows README
+    """The popup's Start button as an SVG, for the README's store links. GitHub shows README
     images without web fonts, so the label is outlined."""
     glyphs, ink, _, _, _ = outline(ARCHIVO, label, {"wght": 700, "wdth": 100})
     k = 16 / TTFont(ARCHIVO)["head"].unitsPerEm
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     # GitHub and manila on dark.
     readme = ROOT / "brand/readme"
     readme.mkdir(exist_ok=True)
-    (readme / "download-chrome.svg").write_text(button("Download for Chrome", VERMILION, PAPER))
+    (readme / "add-chrome.svg").write_text(button("Add to Chrome", VERMILION, PAPER))
     (readme / "add-firefox.svg").write_text(button("Add to Firefox", INK, PAPER))
     (readme / "add-firefox-dark.svg").write_text(button("Add to Firefox", MANILA, INK))
     (ROOT / "brand/counter/glyphs.js").write_text(counter_glyphs())
