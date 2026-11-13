@@ -7,7 +7,7 @@ cdcSwitch(async (wanted) => {
     if (!wanted() || !anchor || document.getElementById("autoerp-cdc")) return;
 
     const CSS = `
-        .cols, ol > li { grid-template-columns: minmax(0, 1fr) 90px 104px 84px 88px; grid-template-areas: "who ctc left stat act"; }
+        .cols, ol > li { grid-template-columns: minmax(0, 1fr) 90px 104px 104px 88px; grid-template-areas: "who ctc left stat act"; }
         .who { grid-area: who; min-width: 0; }
         .ctc { grid-area: ctc; text-align: right; }
         .left { grid-area: left; text-align: right; }
@@ -23,7 +23,7 @@ cdcSwitch(async (wanted) => {
         li .left.soon { color: var(--red-text); font-weight: 600; }
         #refresh { font-variant-numeric: tabular-nums; }
         @media (max-width: 760px) {
-            .cols, ol > li { grid-template-columns: auto minmax(0, 1fr) 84px 88px; grid-template-areas: "who who stat act" "ctc left stat act"; }
+            .cols, ol > li { grid-template-columns: auto minmax(0, 1fr) 104px 88px; grid-template-areas: "who who stat act" "ctc left stat act"; }
             .cols .ctc, .cols .left { display: none; }
             li .ctc, li .left { text-align: left; }
         }`;

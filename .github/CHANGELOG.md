@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.1 (2026-11-13)
+
+
+### Fixes
+
+* **CDC company board**: status chips are wider and taller, so "Check on ERP" no longer presses against its border
+
+
 ## 2.3.0 (2026-11-13)
 
 

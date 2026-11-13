@@ -217,7 +217,7 @@ const CDC_CSS = `
     ol > li { padding: 9px 8px; border-bottom: 1px solid #f0f0f2; }
     ol > li:hover { background: #fafafa; }
     ol > li:last-child { border-bottom: none; }
-    .chip { display: inline-flex; align-items: center; justify-content: center; width: 84px; height: 22px; padding: 0 4px; border-radius: 6px;
+    .chip { display: inline-flex; align-items: center; justify-content: center; width: 104px; height: 24px; padding: 0 10px; border-radius: 6px;
             color: var(--muted); font: 500 12px var(--font); white-space: nowrap; }
     .chip.can { background: #ecfdf3; color: #067647; box-shadow: inset 0 0 0 1px #abefc6; }
     .chip.applied { background: var(--card); color: #3f3f46; }

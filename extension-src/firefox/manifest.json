@@ -3,7 +3,7 @@
     "name": "AutoERP",
     "description": "Fills your IIT Kharagpur ERP and CDC login up to the OTP and your feedback forms, and sorts CDC's company and notice boards.",
     "homepage_url": "https://github.com/ashuwhy/AutoERP",
-    "version": "2.3.0",
+    "version": "2.3.1",
     "permissions": [
         "scripting",
         "activeTab",
