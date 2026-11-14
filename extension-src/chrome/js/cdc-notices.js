@@ -30,6 +30,7 @@ cdcSwitch(async (wanted) => {
         #cats button[data-cat="Urgent"]:not(.picked), .tag[data-cat="Urgent"] { border-color: #fecdca; background: #fef3f2; color: var(--red-text); }
         @media (max-width: 760px) {
             .cols { display: none; }
+            .cols + ol { margin-top: 0; }
             ol > li { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "when cat act" "body body act"; }
             .cat { flex-direction: row; align-items: center; }
         }`;

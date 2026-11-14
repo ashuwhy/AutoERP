@@ -28,6 +28,8 @@ cdcSwitch(async (wanted) => {
         #sort:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
         #refresh { font-variant-numeric: tabular-nums; }
         #ics:disabled { opacity: 0.45; color: var(--muted); cursor: default; }
+        /* One wrap item, so "N hidden, show" never drops to a line of its own under Hide not eligible. */
+        #hiding { display: inline-flex; align-items: center; gap: 8px; }
         @media (max-width: 760px) {
             .cols, ol > li { grid-template-columns: auto minmax(0, 1fr) 104px 88px; grid-template-areas: "who who stat act" "ctc left stat act"; }
             .cols .ctc, .cols .left { display: none; }
@@ -49,8 +51,10 @@ cdcSwitch(async (wanted) => {
                         <option value="ctc">Highest CTC</option>
                         <option value="az">Company A-Z</option>
                     </select>
-                    <div class="chips"><button id="hide" class="picked" aria-pressed="true">Hide not eligible</button></div>
-                    <button class="link" id="hidden" hidden></button>
+                    <div id="hiding">
+                        <div class="chips"><button id="hide" class="picked" aria-pressed="true">Hide not eligible</button></div>
+                        <button class="link" id="hidden" hidden></button>
+                    </div>
                 </div>
                 <div class="head">
                     <button class="link" id="ics" title="An .ics of every role you can apply to now. Apple Calendar and Outlook keep its reminders 3 h and 30 min before; Google Calendar uses its own.">Add deadlines to calendar</button>
