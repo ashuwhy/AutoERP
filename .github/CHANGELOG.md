@@ -15,6 +15,8 @@
 ### Fixes
 
 * **CDC company board**: switching between Open now, Opens soon and Closed no longer makes the board jump in height. The list keeps the height of the tab with the most roles, up to 70% of the window
+* **CDC company board**: with **Hide not eligible** on, a role that turns Not eligible while the board checks it now leaves the list, and "N hidden, show" counts it. Before, it stayed where it was, often near the top, until you changed the tab or the search
+* **CDC company board**: a role you applied to no longer reads NEW, whether ERP's list says Applied or its role page does during the check. NEW is what this browser has not seen, so a role you applied to from another browser or your phone read NEW here
 
 ## 2.4.1 (2026-11-13)
 

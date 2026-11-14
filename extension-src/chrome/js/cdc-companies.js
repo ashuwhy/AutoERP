@@ -138,6 +138,7 @@ cdcSwitch(async (wanted) => {
     const checking = new Set();
     let tab = "open";
     let hide = true;
+    let hiddenCount = 0;
     let rowHeight = 0;
     if (!roll) say("AutoERP could not find your roll number on this page, so it does not check eligibility. Open each role on ERP.");
 
@@ -255,8 +256,9 @@ cdcSwitch(async (wanted) => {
         const company = span("", "");
         company.append(...cdcMarked(r.company, query()));
         name.append(company);
-        if (isNew.has(r.key)) name.append(span("new", "NEW"));
         const chip = chipOf(r);
+        // Seen is per browser: a role applied to elsewhere is unseen here, but it is not news.
+        if (isNew.has(r.key) && chip.cls !== "applied") name.append(span("new", "NEW"));
         // ERP's sentence shares the role's line, cut short, so a row keeps its height when its answer lands.
         const role = document.createElement("p");
         role.className = "role";
@@ -323,10 +325,9 @@ cdcSwitch(async (wanted) => {
         $("elsewhere").dataset.tab = elsewhere;
         $("elsewhere").textContent = elsewhere ? `${counts[elsewhere]} more in ${tabName[elsewhere]}, show` : "";
         const matching = sorted(found.filter((r) => tabOf(r) === tab));
-        const hiddenCount = hide ? matching.filter((r) => chipOf(r).cls === "not").length : 0;
+        hiddenCount = hide ? matching.filter((r) => chipOf(r).cls === "not").length : 0;
         const shown = hide ? matching.filter((r) => chipOf(r).cls !== "not") : matching;
-        $("hidden").hidden = !hiddenCount;
-        $("hidden").textContent = `${hiddenCount} hidden, show`;
+        countHidden();
         $("hide").classList.toggle("picked", hide);
         $("hide").setAttribute("aria-pressed", String(hide));
         $("roles").replaceChildren(...shown.map(row));
@@ -341,10 +342,22 @@ cdcSwitch(async (wanted) => {
         syncIcs();
     }
 
-    // An answer from ERP swaps its row in place and never adds or removes one, so the list does not
-    // jump under the pointer. A row that turned Not eligible leaves at the next render the student causes.
+    function countHidden() {
+        $("hidden").hidden = !hiddenCount;
+        $("hidden").textContent = `${hiddenCount} hidden, show`;
+    }
+
+    // An answer from ERP swaps its row in place and never adds one, so the list does not jump under the
+    // pointer. With Hide not eligible on, a row that turns Not eligible leaves and the hidden count takes it.
     function redraw(r) {
-        [...$("roles").children].find((el) => el.dataset.key === r.key)?.replaceWith(row(r));
+        const li = [...$("roles").children].find((el) => el.dataset.key === r.key);
+        if (li && hide && chipOf(r).cls === "not") {
+            li.remove();
+            hiddenCount++;
+            // The last row gone: render puts up the tab's empty message.
+            if (!$("roles").children.length) return render();
+            countHidden();
+        } else li?.replaceWith(row(r));
         syncIcs();
     }
 
