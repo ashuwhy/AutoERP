@@ -151,6 +151,24 @@ function ctcText(ctc, currency) {
     return `${amount.toLocaleString(currency === "INR" ? "en-IN" : "en-US")} ${currency}`;
 }
 
+// A search hit inside ERP text, as nodes for append(): plain strings and <mark>s filled through textContent,
+// so nothing in ERP's text is ever parsed as markup. query comes lowercased. A character whose lowercase
+// is longer ("İ") would shift every index after it, so such text goes unmarked.
+function cdcMarked(text, query) {
+    const lower = text.toLowerCase();
+    if (!query || lower.length !== text.length) return [text];
+    const parts = [];
+    let from = 0;
+    for (let at = lower.indexOf(query); at >= 0; at = lower.indexOf(query, from)) {
+        const hit = document.createElement("mark");
+        hit.textContent = text.slice(at, at + query.length);
+        parts.push(text.slice(from, at), hit);
+        from = at + query.length;
+    }
+    parts.push(text.slice(from));
+    return parts.filter((part) => part !== "");
+}
+
 // Company names differ between the grid and the notices ("Capgemini Technology Services India
 // Limited" vs "CAPGEMINI"), so they match when one's words are a run of the other's. Whole words:
 // "HP" must not match "Shopee".
@@ -252,6 +270,7 @@ const CDC_CSS = `
     button.act:hover { border-color: #a1a1aa; background: var(--card); }
     button.act:active { transform: scale(0.98); }
     .empty { padding: 14px 8px; color: var(--muted); }
+    mark { border-radius: 2px; background: #fde68a; color: inherit; }
     .note[hidden], [hidden] { display: none !important; }`;
 
 // Same steps as login.js mountCard: theme.css and the wordmark come from the extension.

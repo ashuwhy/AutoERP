@@ -125,6 +125,7 @@ cdcSwitch(async (wanted) => {
     let category = "";
     let mine = false;
     let newOnly = false;
+    let query = "";
     let filtered = [];
     let shown = 0;
     const BATCH = 100;
@@ -151,11 +152,13 @@ cdcSwitch(async (wanted) => {
         body.className = "body";
         const line = document.createElement("p");
         line.className = "line";
-        line.append(span("subject", n.subject));
+        const subject = span("subject", "");
+        subject.append(...cdcMarked(n.subject, query));
+        line.append(subject);
         if (n.isNew) line.append(span("new", "NEW"));
         const text = document.createElement("p");
         text.className = "text";
-        text.textContent = n.text;
+        text.append(...cdcMarked(n.text, query));
         const more = document.createElement("button");
         more.className = "link more";
         more.textContent = "more";
@@ -180,12 +183,15 @@ cdcSwitch(async (wanted) => {
         const batch = filtered.slice(shown, shown + BATCH).map(item);
         shown += batch.length;
         $("notices").append(...batch);
-        // All reads, then all writes, so the batch costs one layout and not a hundred.
+        // All reads, then all writes, so the batch costs one layout and not a hundred. A notice the search
+        // hits in its text opens, measured while still clamped so "less" shows only where there is more.
         const clamped = batch.map((li) => {
             const text = li.querySelector(".text");
             return text.scrollHeight > text.clientHeight + 1;
         });
         batch.forEach((li, i) => {
+            const open = li.querySelector(".text").classList.toggle("full", Boolean(li.querySelector(".text mark")));
+            li.querySelector(".more").textContent = open ? "less" : "more";
             li.querySelector(".more").hidden = !clamped[i];
         });
     }
@@ -193,7 +199,7 @@ cdcSwitch(async (wanted) => {
     function render() {
         // In the page before more() measures which notices are clamped.
         show();
-        const query = $("search").value.trim().toLowerCase();
+        query = $("search").value.trim().toLowerCase();
         // Type counts follow every other filter, like the company tabs follow the search.
         const others = notices.filter(
             (n) =>

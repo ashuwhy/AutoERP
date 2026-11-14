@@ -21,6 +21,10 @@ cdcSwitch(async (wanted) => {
         li .ctc.free { color: var(--muted); font: 500 11px/1.3 var(--font); }
         li .left { font-variant-numeric: tabular-nums; white-space: nowrap; }
         li .left.soon { color: var(--red-text); font-weight: 600; }
+        #sort { flex: none; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+                font: 500 13px var(--font); cursor: pointer; }
+        #sort:hover { border-color: #d4d4d8; }
+        #sort:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
         #refresh { font-variant-numeric: tabular-nums; }
         #ics:disabled { opacity: 0.45; color: var(--muted); cursor: default; }
         @media (max-width: 760px) {
@@ -39,6 +43,11 @@ cdcSwitch(async (wanted) => {
                         <button id="tab-closed">Closed<span class="n">0</span></button>
                     </div>
                     <input type="search" id="search" placeholder="Search company or role" aria-label="Search company or role">
+                    <select id="sort" aria-label="Sort roles">
+                        <option value="deadline">Closing soonest</option>
+                        <option value="ctc">Highest CTC</option>
+                        <option value="az">Company A-Z</option>
+                    </select>
                     <div class="chips"><button id="hide" class="picked" aria-pressed="true">Hide not eligible</button></div>
                     <button class="link" id="hidden" hidden></button>
                 </div>
@@ -51,6 +60,7 @@ cdcSwitch(async (wanted) => {
             <div class="cols" aria-hidden="true"><span class="who">Company and role</span><span class="ctc">CTC</span><span class="left" id="col-left">Closes in</span><span class="stat">Status</span><span class="act"></span></div>
             <ol id="roles"></ol>
             <p class="empty" id="none" hidden>No roles here.</p>
+            <p class="empty" hidden><button class="link" id="elsewhere" hidden></button></p>
         </section>`;
 
     const now = () => Date.now();
@@ -89,12 +99,16 @@ cdcSwitch(async (wanted) => {
     }
     const roles = cdcRows(feed.text).map((cells) => {
         const args = cdcCall(cells[3], "TPJNFView");
+        const currency = (cells[6]?.textContent || "").trim();
+        const amount = (cells[5]?.textContent || "").replace(/[₹,\s]/g, "");
         return {
             company: cells[0].querySelector("a")?.getAttribute("title") || cells[0].textContent.trim(),
             role: cells[3].textContent.trim(),
             args,
             key: keyOf(args),
-            ctc: ctcText(cells[5]?.textContent || "", (cells[6]?.textContent || "").trim()),
+            ctc: ctcText(cells[5]?.textContent || "", currency),
+            // Highest CTC: rupees first, then other currencies by code, since no exchange rate is guessed, then free text.
+            pay: /^\d+(\.\d+)?$/.test(amount) ? [currency === "INR" ? 0 : 1, currency === "INR" ? "" : currency, Number(amount)] : [2, "", 0],
             applied: cells[8]?.textContent.trim() === "Y",
             start: istTime(cells[9]?.textContent || ""),
             end: istTime(cells[10]?.textContent || ""),
@@ -106,8 +120,9 @@ cdcSwitch(async (wanted) => {
     let lastTab = new Map(roles.map((r) => [r, tabOf(r)]));
     const byKey = new Map(roles.filter((r) => r.key).map((r) => [r.key, r]));
     const keys = [...byKey.keys()];
-    const stored = await chrome.storage.local.get(["cdcSeen", "cdcJnf"]);
+    const stored = await chrome.storage.local.get(["cdcSeen", "cdcJnf", "cdcSort"]);
     if (!wanted()) return stop;
+    if (stored.cdcSort) $("sort").value = stored.cdcSort;
     const seen = stored.cdcSeen ? new Set(stored.cdcSeen) : null;
     const isNew = new Set(seen ? keys.filter((k) => !seen.has(k)) : []);
     await chrome.storage.local.set({ cdcSeen: keys });
@@ -233,13 +248,15 @@ cdcSwitch(async (wanted) => {
         who.className = "who";
         const name = document.createElement("p");
         name.className = "name";
-        name.append(span("", r.company));
+        const company = span("", "");
+        company.append(...cdcMarked(r.company, query()));
+        name.append(company);
         if (isNew.has(r.key)) name.append(span("new", "NEW"));
         const chip = chipOf(r);
         // ERP's sentence shares the role's line, cut short, so a row keeps its height when its answer lands.
         const role = document.createElement("p");
         role.className = "role";
-        role.textContent = r.role;
+        role.append(...cdcMarked(r.role, query()));
         role.title = chip.why ? `${r.role} - ${chip.why}` : r.role;
         if (chip.why) role.append(span("why", chip.why));
         who.append(name, role);
@@ -266,21 +283,42 @@ cdcSwitch(async (wanted) => {
         closed: (a, b) => b.end - a.end,
     };
 
-    const matches = (r) => {
-        const query = $("search").value.trim().toLowerCase();
-        return !query || `${r.company} ${r.role}`.toLowerCase().includes(query);
+    const sorts = {
+        ctc: (a, b) => a.pay[0] - b.pay[0] || a.pay[1].localeCompare(b.pay[1]) || b.pay[2] - a.pay[2],
+        az: (a, b) => a.company.localeCompare(b.company, "en"),
     };
+    // Open now and Opens soon put what you can act on first. Closed has no groups: nothing there takes an application.
+    const groupOf = { can: 0, check: 1, checking: 1, applied: 2, not: 3 };
+
+    function sorted(list) {
+        const group = new Map(list.map((r) => [r, tab === "closed" ? 0 : groupOf[chipOf(r).cls]]));
+        const by = sorts[$("sort").value];
+        return list.sort((a, b) => group.get(a) - group.get(b) || by?.(a, b) || order[tab](a, b));
+    }
+
+    const query = () => $("search").value.trim().toLowerCase();
+    const tabName = { open: "Open now", soon: "Opens soon", closed: "Closed" };
 
     function render() {
         show();
         // Tab counts follow the search, so a match in another tab still shows up.
-        const found = roles.filter(matches);
+        const q = query();
+        const found = roles.filter((r) => !q || `${r.company} ${r.role}`.toLowerCase().includes(q));
+        const counts = {};
         for (const t of ["open", "soon", "closed"]) {
-            $(`tab-${t}`).lastChild.textContent = found.filter((r) => tabOf(r) === t).length;
+            counts[t] = found.filter((r) => tabOf(r) === t).length;
+            $(`tab-${t}`).lastChild.textContent = counts[t];
             $(`tab-${t}`).classList.toggle("picked", t === tab);
         }
         $("col-left").textContent = { open: "Closes in", soon: "Opens in", closed: "Closed" }[tab];
-        const matching = found.filter((r) => tabOf(r) === tab).sort(order[tab]);
+        $("sort").options[0].textContent = { open: "Closing soonest", soon: "Opening soonest", closed: "Closed most recently" }[tab];
+        // A search that hits more in another tab names the one with the most, once.
+        const most = ["open", "soon", "closed"].reduce((a, b) => (counts[b] > counts[a] ? b : a));
+        const elsewhere = q && counts[most] > counts[tab] ? most : "";
+        $("elsewhere").hidden = $("elsewhere").parentElement.hidden = !elsewhere;
+        $("elsewhere").dataset.tab = elsewhere;
+        $("elsewhere").textContent = elsewhere ? `${counts[elsewhere]} more in ${tabName[elsewhere]}, show` : "";
+        const matching = sorted(found.filter((r) => tabOf(r) === tab));
         const hiddenCount = hide ? matching.filter((r) => chipOf(r).cls === "not").length : 0;
         const shown = hide ? matching.filter((r) => chipOf(r).cls !== "not") : matching;
         $("hidden").hidden = !hiddenCount;
@@ -420,6 +458,11 @@ cdcSwitch(async (wanted) => {
             if (queue.length) askAll(queue);
         });
     $("search").addEventListener("input", render);
+    $("elsewhere").addEventListener("click", () => $(`tab-${$("elsewhere").dataset.tab}`).click());
+    $("sort").addEventListener("change", () => {
+        chrome.storage.local.set({ cdcSort: $("sort").value });
+        render();
+    });
     $("hide").addEventListener("click", () => {
         hide = !hide;
         render();

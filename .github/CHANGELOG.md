@@ -6,6 +6,10 @@
 ### Features
 
 * **CDC company board**: the **Closed** tab asks ERP about each closed role you did not apply to, once, the first time you open it: newest first, three at a time, each row reading Checking until its answer lands. A role you could have applied to reads **Missed**; Not eligible and Applied read as before. A closed role's answer can't change, so it is kept for good: reloading the page or pressing Check eligibility again never asks about it again. Before, every closed role read Check on ERP
+* **CDC company board**: Open now and Opens soon list **Can apply** roles first, then Check on ERP, Applied and Not eligible. Rows move only when you change the tab, search or a filter, never while answers land. Closed keeps its newest-first order
+* **CDC company board**: a **sort** menu beside the search: Closing soonest (Opening soonest on Opens soon, Closed most recently on Closed), Highest CTC and Company A-Z. Highest CTC puts rupee amounts first, high to low, then other currencies by code, since AutoERP guesses no exchange rate, then CTCs ERP gives as free text. AutoERP keeps your pick for the next visit
+* **CDC company board**: a search marks what it matched in the company and role, and when another tab holds more matches than the one you are on, a line under the list says so ("3 more in Closed, show") and takes you there
+* **CDC notice board**: a search marks what it matched in the subject and text, and a notice whose text matches opens in full, with "less" to fold it. Clearing the search folds it again
 
 ## 2.4.1 (2026-11-13)
 
