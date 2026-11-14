@@ -188,6 +188,55 @@ function sameCompany(a, b) {
     return Boolean(x && y) && (` ${x} `.includes(` ${y} `) || ` ${y} `.includes(` ${x} `));
 }
 
+// Whether a notice's PDF lists roll: "in", "out" (other rolls, not this one) or "none" (no rolls, no text, not
+// a PDF, over 15 MB, or pdf.js could not parse it). pdf.js runs in pdf-reader.html, one hidden frame per page
+// made on the first PDF; the bytes are moved there, not copied. No answer in 30 s throws while the reader has
+// never answered on this page (not loaded, or blocked), so the caller stores nothing and stops: a broken reader
+// never marks PDFs unreadable for good. Once it has answered, one PDF it sits on gives null, skipped by the caller.
+let cdcPdfFrame;
+let cdcPdfAnswered = false;
+
+// A roll: 24AB12345, or an M.Tech one with letters in places 6-7 (24AB60R12, 24AB6RS12).
+const CDC_ROLL = /^\d{2}[A-Z]{2}\d[0-9A-Z]{2}\d{2}$/;
+
+// The verdict for a notice's own upper-cased text, with pdf-reader.js's rules: ERP runs each roll in an offer
+// straight into the next name, so only a digit may touch one.
+function cdcRollIn(text, roll) {
+    if (new RegExp(`(?<!\\d)${roll}(?!\\d)`).test(text)) return "in";
+    return /(?<!\d)\d{2}[A-Z]{2}\d[0-9A-Z]{2}\d{2}(?!\d)/.test(text) ? "out" : "none";
+}
+
+async function cdcPdfVerdict(bytes, roll) {
+    if (bytes.byteLength > 15 * 1024 * 1024 || String.fromCharCode(...new Uint8Array(bytes, 0, Math.min(5, bytes.byteLength))) !== "%PDF-") return "none";
+    const reader = new URL(chrome.runtime.getURL("pdf-reader.html"), location.href);
+    cdcPdfFrame ??= new Promise((ok) => {
+        const frame = document.createElement("iframe");
+        frame.hidden = true;
+        frame.style.display = "none";
+        frame.onload = () => ok(frame);
+        frame.src = reader.href;
+        document.documentElement.append(frame);
+    });
+    let timer;
+    const late = new Promise((ok, fail) => {
+        timer = setTimeout(() => (cdcPdfAnswered ? ok(null) : fail(new Error("PDF reader did not answer"))), 30000);
+    });
+    const answer = cdcPdfFrame.then((frame) => new Promise((ok) => {
+        const { port1, port2 } = new MessageChannel();
+        port1.onmessage = ({ data }) => {
+            port1.close();
+            cdcPdfAnswered = true;
+            ok(data);
+        };
+        frame.contentWindow.postMessage({ bytes, roll }, `${reader.protocol}//${reader.host}`, [port2, bytes]);
+    }));
+    try {
+        return await Promise.race([answer, late]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // One flat card in the page's flow above ERP's grid, as wide as the window: a top line with the
 // tabs and filters and, at its right end, the board's links and a small grey wordmark; then column
 // headers and rows. Each board adds its own grid columns.
@@ -203,10 +252,11 @@ const CDC_CSS = `
     .card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 4px; border: 1px solid var(--line);
             border-radius: 10px; background: var(--paper); color: var(--ink); font: 13px/1.45 var(--font); text-align: left; }
     /* The bar's floor is its widest piece, the tab group, so in a narrow frame the head wraps under the filters
-       instead of squeezing the tabs into a column. */
+       instead of squeezing the tabs into a column. On its own line the head may still be wider than a narrow
+       frame, so it wraps there too, right-aligned. */
     .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
     .top > .bar { flex: 1 1 0; }
-    .head { display: flex; align-items: center; gap: 12px; flex: none; margin-left: auto; }
+    .head { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 12px; flex: 0 1 auto; margin-left: auto; }
     .head small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
     .head .wordmark { height: 12px; color: #a1a1aa; }
     .head .wordmark .auto { fill: currentColor; }
@@ -240,6 +290,9 @@ const CDC_CSS = `
     input[type="search"]::placeholder { color: #a1a1aa; }
     input[type="search"]:hover { border-color: #d4d4d8; }
     input[type="search"]:focus { outline: none; border-color: #a1a1aa; box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.06); }
+    input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-left: 6px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23a1a1aa' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M3.5 3.5l7 7M10.5 3.5l-7 7'/%3E%3C/svg%3E") no-repeat center; cursor: pointer; }
+    input[type="search"]::-webkit-search-cancel-button:hover { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2318181b' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M3.5 3.5l7 7M10.5 3.5l-7 7'/%3E%3C/svg%3E"); }
     .link { border: none; background: none; padding: 0; color: var(--muted); font: 500 12px var(--font); cursor: pointer;
             text-decoration: underline; text-decoration-color: #d4d4d8; text-underline-offset: 2px; }
     .link:hover { color: var(--ink); }

@@ -62,7 +62,8 @@
             "resources": [
                 "fonts/archivo.woff2",
                 "css/theme.css",
-                "images/wordmark.svg"
+                "images/wordmark.svg",
+                "pdf-reader.html"
             ],
             "matches": [
                 "*://erp.iitkgp.ac.in/*"

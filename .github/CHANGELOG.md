@@ -10,6 +10,11 @@
 * **CDC company board**: a **sort** menu beside the search: Closing soonest (Opening soonest on Opens soon, Closed most recently on Closed), Highest CTC and Company A-Z. Highest CTC puts rupee amounts first, high to low, then other currencies by code, since AutoERP guesses no exchange rate, then CTCs ERP gives as free text. AutoERP keeps your pick for the next visit
 * **CDC company board**: a search marks what it matched in the company and role, and when another tab holds more matches than the one you are on, a line under the list says so ("3 more in Closed, show") and takes you there
 * **CDC notice board**: a search marks what it matched in the subject and text, and a notice whose text matches opens in full, with "less" to fold it. Clearing the search folds it again
+* **CDC notice board**: AutoERP reads each notice's attachment for your roll number and tags the notice **You're in this list** or **Not in this list**. A list with no roll numbers in it, like a job description, gets no tag. On open it reads every attachment it has not read yet, newest first, three at a time, and the count reads "Reading PDFs 4 of 30" until it is done; a search or filter moves the notices it shows to the front. A roll in the notice's own text counts too. **Lists with me** filters to the notices you are in. The roll comes from the company page, or from your saved login; with neither, one line asks you to open the company page once, and nothing is fetched. Only the answer is kept, never the file or its text, so a reload reads nothing again. pdf.js 6.4.299 does the reading, inside the extension
+
+### Fixes
+
+* **CDC company board**: switching between Open now, Opens soon and Closed no longer makes the board jump in height. The list keeps the height of the tab with the most roles, up to 70% of the window
 
 ## 2.4.1 (2026-11-13)
 

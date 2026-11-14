@@ -432,7 +432,7 @@ document.getElementById("forget").addEventListener("click", async () => {
     showLogin();
 });
 
-const CDC_KEYS = ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice"];
+const CDC_KEYS = ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice", "cdcRoll", "cdcPdf"];
 
 // The boards are on until you switch them off. The CDC scripts hear the change themselves.
 async function showCdc() {

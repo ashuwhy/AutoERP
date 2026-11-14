@@ -13,3 +13,6 @@ resources
 
 # Store zips
 dist
+
+# npm
+node_modules

@@ -1,6 +1,9 @@
 // Notice board on CDC's Notice.jsp, above ERP's own grid (#grid54), which stays as it is.
 // Rows come from the grid's feed (jqqueryid=54, every notice of the year in one 2 MB answer,
 // newest first). Cells 5 (coordinators' rolls), 8 (Upload) and 9 (Deactivate) are never parsed.
+// Attachments are read for my roll (cdcRoll from the company board, else the login roll) in pdf-reader.html,
+// three at a time, every unread one on open, newest first, the ones the search or filter shows before the rest.
+// Only the verdict is kept.
 cdcSwitch(async (wanted) => {
     const anchor = await cdcAnchor(54);
     if (!wanted() || !anchor || document.getElementById("autoerp-cdc")) return;
@@ -15,6 +18,9 @@ cdcSwitch(async (wanted) => {
         .tag { display: inline-block; max-width: 100%; height: 20px; padding: 0 7px; border-radius: 6px; background: var(--card); color: #3f3f46;
                font: 500 11px/20px var(--font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .line { display: flex; align-items: center; gap: 8px; }
+        .line .tag { flex: none; }
+        .tag.pdf-in { background: #ecfdf3; color: #067647; box-shadow: inset 0 0 0 1px #abefc6; }
+        .tag.pdf-out { color: var(--muted); }
         .subject { font-weight: 600; }
         .text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; color: #3f3f46; font-size: 13px;
                 white-space: pre-line; overflow-wrap: anywhere; }
@@ -43,8 +49,10 @@ cdcSwitch(async (wanted) => {
                     <div class="chips">
                         <button id="mine" aria-pressed="false">My companies</button>
                         <button id="newonly" aria-pressed="false">New<span class="n">0</span></button>
+                        <button id="withme" aria-pressed="false" disabled>Lists with me<span class="n">0</span></button>
                     </div>
                     <span class="muted" id="mine-why" hidden>Open the company page first</span>
+                    <span class="muted" id="pdf-why" hidden>Open the company page once so AutoERP knows your roll number.</span>
                 </div>
                 <div class="head">
                     <small id="count"></small>
@@ -61,10 +69,13 @@ cdcSwitch(async (wanted) => {
     const [{ shadow, show }, feed, stored] = await Promise.all([
         mountPanel("autoerp-cdc", anchor, CSS, HTML),
         cdcFetch("ERPMonitoring.htm?action=fetchData&jqqueryid=54").catch(() => null),
-        chrome.storage.local.get(["cdcApplied", "cdcLastNotice"]),
+        chrome.storage.local.get(["cdcApplied", "cdcLastNotice", "cdcRoll", "login", "cdcPdf"]),
     ]);
     const $ = (id) => shadow.getElementById(id);
-    const stop = () => shadow.host.remove();
+    const stop = () => {
+        chrome.storage.onChanged.removeListener(forget);
+        shadow.host.remove();
+    };
     if (!wanted()) return stop;
 
     function say(text) {
@@ -107,10 +118,42 @@ cdcSwitch(async (wanted) => {
     const mineSet = new Set(notices.filter((n) => applied.some((name) => sameCompany(n.subject, name))));
     const newCount = notices.filter((n) => n.isNew).length;
     $("mine").disabled = !applied.length;
-    $("mine-why").hidden = applied.length > 0;
     if (stored.cdcApplied) $("mine-why").textContent = "You have not applied to any company yet";
     $("newonly").disabled = !newCount;
     $("newonly").lastChild.textContent = newCount;
+
+    const roll = [stored.cdcRoll, stored.login?.roll].find((r) => CDC_ROLL.test(r));
+    // Never on the company page and no roll: the roll hint says the same thing, and it takes this spot.
+    $("mine-why").hidden = applied.length > 0 || (!stored.cdcApplied && !roll);
+    const pdfKey = (n) => n.attach?.join(":");
+    // Read for one roll: another account's roll starts over. Pruned to the feed's attachments, as cdcJnf is.
+    // Every write stores this whole object, so three readers finishing together never drop each other's verdicts.
+    const saved = roll && stored.cdcPdf?.roll === roll ? stored.cdcPdf.verdicts : {};
+    const verdicts = {};
+    if (roll)
+        for (const n of notices) {
+            const v = saved[pdfKey(n)];
+            if (v === "in" || v === "out" || v === "none") verdicts[pdfKey(n)] = v;
+        }
+    let forgot = false;
+    // Forget CDC data in the popup with this tab open: a read in flight would write the verdicts back. Before the
+    // first verdict there is no cdcPdf to remove, but cdcLastNotice was set above.
+    function forget(changes, area) {
+        if (area !== "local" || !["cdcPdf", "cdcLastNotice"].some((k) => k in changes && !("newValue" in changes[k]))) return;
+        forgot = true;
+        for (const k in verdicts) delete verdicts[k];
+    }
+    chrome.storage.onChanged.addListener(forget);
+    if (roll && stored.cdcPdf && (stored.cdcPdf.roll !== roll || Object.keys(verdicts).length < Object.keys(saved).length))
+        await chrome.storage.local.set({ cdcPdf: { roll, verdicts } });
+    if (!wanted()) return stop;
+    $("pdf-why").hidden = Boolean(roll);
+    // The text's verdict is worked out on every visit and never stored; cdcPdf holds the PDFs' only.
+    const textVerdicts = new Map(roll ? notices.map((n) => [n, cdcRollIn(n.text.toUpperCase(), roll)]) : []);
+    const listing = (n) => {
+        const both = [verdicts[pdfKey(n)], textVerdicts.get(n)];
+        return both.includes("in") ? "in" : both.includes("out") ? "out" : "none";
+    };
 
     for (const t of ["placement", "internship"]) $(`type-${t}`).disabled = !notices.some((n) => n.type === t.toUpperCase());
     const categories = [...new Set(notices.map((n) => n.category).filter(Boolean))].sort();
@@ -125,7 +168,9 @@ cdcSwitch(async (wanted) => {
     let category = "";
     let mine = false;
     let newOnly = false;
+    let withMe = false;
     let query = "";
+    let reading = null;
     let filtered = [];
     let shown = 0;
     const BATCH = 100;
@@ -156,6 +201,8 @@ cdcSwitch(async (wanted) => {
         subject.append(...cdcMarked(n.subject, query));
         line.append(subject);
         if (n.isNew) line.append(span("new", "NEW"));
+        const listed = pdfTag(listing(n));
+        if (listed) line.append(listed);
         const text = document.createElement("p");
         text.className = "text";
         text.append(...cdcMarked(n.text, query));
@@ -179,6 +226,11 @@ cdcSwitch(async (wanted) => {
         return li;
     }
 
+    function pdfTag(verdict) {
+        if (verdict === "in") return span("tag pdf-in", "You're in this list");
+        if (verdict === "out") return span("tag pdf-out", "Not in this list");
+    }
+
     function more() {
         const batch = filtered.slice(shown, shown + BATCH).map(item);
         shown += batch.length;
@@ -196,6 +248,79 @@ cdcSwitch(async (wanted) => {
         });
     }
 
+    function showCount() {
+        $("count").textContent = reading
+            ? `Reading PDFs ${Math.min(reading.done + 1, reading.total)} of ${reading.total}`
+            : filtered.length === notices.length
+              ? `${notices.length} notices`
+              : `${filtered.length} of ${notices.length} notices`;
+    }
+
+    function showPdfState() {
+        const withMeCount = notices.filter((n) => listing(n) === "in").length;
+        $("withme").lastChild.textContent = withMeCount;
+        $("withme").disabled = !withMeCount;
+    }
+
+    // Signed out stops the run, as the feed does; a network or HTTP error skips that one, so it is tried
+    // on the next visit. A reader that never answers stops the run with nothing stored; a PDF it hangs on is
+    // skipped, stored as nothing, and the rest are read. Each reader takes the
+    // newest unread notice the search and filters show, and only when they show none, the newest of the rest.
+    async function readPdfs() {
+        const unread = new Set(notices.filter((n) => n.attach && !(pdfKey(n) in verdicts)));
+        if (!unread.size) return;
+        reading = { done: 0, total: unread.size };
+        showCount();
+        showPdfState();
+        let halt = false;
+        async function readOne(n) {
+            const [year, id] = n.attach;
+            const url = new URL(`AdmFilePDF.htm?type=NOTICE&year=${encodeURIComponent(year)}&id=${encodeURIComponent(id)}`, location.href).href;
+            let bytes;
+            try {
+                const response = await cdcPageFetch(url, { credentials: "include" });
+                if (response.url.includes("/SSOAdministration/")) {
+                    halt = true;
+                    if (wanted()) say("Signed out of ERP.");
+                    return;
+                }
+                if (!response.ok) return;
+                bytes = await response.arrayBuffer();
+            } catch {
+                return;
+            }
+            let verdict;
+            try {
+                verdict = await cdcPdfVerdict(bytes, roll);
+            } catch {
+                halt = true;
+                return;
+            }
+            if (!verdict || forgot || !wanted()) return;
+            verdicts[pdfKey(n)] = verdict;
+            chrome.storage.local.set({ cdcPdf: { roll, verdicts } });
+            const listed = pdfTag(listing(n));
+            const line = [...$("notices").children].find((el) => el.dataset.serial === String(n.serial))?.querySelector(".line");
+            line?.querySelector(".pdf-in, .pdf-out")?.remove();
+            if (listed && line) line.append(listed);
+            showPdfState();
+        }
+        const worker = async () => {
+            while (!halt && !forgot && wanted() && unread.size) {
+                const n = filtered.find((x) => unread.has(x)) ?? unread.values().next().value;
+                unread.delete(n);
+                await readOne(n);
+                reading.done++;
+                showCount();
+            }
+        };
+        await Promise.all([worker(), worker(), worker()]);
+        reading = null;
+        if (!wanted()) return;
+        showCount();
+        showPdfState();
+    }
+
     function render() {
         // In the page before more() measures which notices are clamped.
         show();
@@ -206,15 +331,16 @@ cdcSwitch(async (wanted) => {
                 (!category || n.category === category) &&
                 (!mine || mineSet.has(n)) &&
                 (!newOnly || n.isNew) &&
+                (!withMe || listing(n) === "in") &&
                 (!query || n.hay.includes(query))
         );
         filtered = others.filter((n) => type === "all" || n.type === type.toUpperCase());
         for (const t of ["all", "placement", "internship"])
             $(`type-${t}`).lastChild.textContent = others.filter((n) => t === "all" || n.type === t.toUpperCase()).length;
-        $("count").textContent = filtered.length === notices.length ? `${notices.length} notices` : `${filtered.length} of ${notices.length} notices`;
+        showCount();
         for (const t of ["all", "placement", "internship"]) $(`type-${t}`).classList.toggle("picked", t === type);
         for (const chip of $("cats").children) chip.classList.toggle("picked", chip.dataset.cat === category);
-        for (const [id, on] of [["mine", mine], ["newonly", newOnly]]) {
+        for (const [id, on] of [["mine", mine], ["newonly", newOnly], ["withme", withMe]]) {
             $(id).classList.toggle("picked", on);
             $(id).setAttribute("aria-pressed", String(on));
         }
@@ -249,7 +375,13 @@ cdcSwitch(async (wanted) => {
         newOnly = !newOnly;
         render();
     });
+    $("withme").addEventListener("click", () => {
+        withMe = !withMe;
+        render();
+    });
 
     render();
+    showPdfState();
+    if (roll) readPdfs();
     return stop;
 });

@@ -21,8 +21,9 @@ cdcSwitch(async (wanted) => {
         li .ctc.free { color: var(--muted); font: 500 11px/1.3 var(--font); }
         li .left { font-variant-numeric: tabular-nums; white-space: nowrap; }
         li .left.soon { color: var(--red-text); font-weight: 600; }
-        #sort { flex: none; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
-                font: 500 13px var(--font); cursor: pointer; }
+        #sort { flex: none; height: 32px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 8px; -webkit-appearance: none; appearance: none;
+                background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%2371717a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+                color: var(--ink); font: 500 13px var(--font); cursor: pointer; }
         #sort:hover { border-color: #d4d4d8; }
         #sort:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
         #refresh { font-variant-numeric: tabular-nums; }
@@ -82,6 +83,8 @@ cdcSwitch(async (wanted) => {
         shadow.host.remove();
     };
     if (!wanted()) return stop;
+    // After the feed, so an off that lands during it saves nothing. Every visit overwrites: another account replaces it.
+    if (CDC_ROLL.test(roll)) chrome.storage.local.set({ cdcRoll: roll });
 
     function say(text) {
         show();
@@ -135,6 +138,7 @@ cdcSwitch(async (wanted) => {
     const checking = new Set();
     let tab = "open";
     let hide = true;
+    let rowHeight = 0;
     if (!roll) say("AutoERP could not find your roll number on this page, so it does not check eligibility. Open each role on ERP.");
 
     const span = (cls, text) => {
@@ -328,6 +332,12 @@ cdcSwitch(async (wanted) => {
         $("roles").replaceChildren(...shown.map(row));
         $("none").hidden = shown.length > 0;
         $("none").textContent = { open: "No roles open right now", soon: "No roles opening soon", closed: "No closed roles yet" }[tab];
+        // Every tab's list is as tall as the longest tab's, capped where the list scrolls, so a tab switch
+        // does not move the page. An empty tab gives that height to its message.
+        rowHeight = $("roles").firstElementChild?.offsetHeight || rowHeight;
+        const fill = `min(${rowHeight * Math.max(...Object.values(counts))}px, 70vh)`;
+        $("roles").style.minHeight = shown.length ? fill : "";
+        $("none").style.minHeight = shown.length ? "" : fill;
         syncIcs();
     }
 

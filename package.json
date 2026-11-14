@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "vendor:pdfjs": "for b in chrome firefox; do mkdir -p extension-src/$b/lib/pdfjs && cp node_modules/pdfjs-dist/build/pdf.min.mjs node_modules/pdfjs-dist/build/pdf.worker.min.mjs node_modules/pdfjs-dist/LICENSE extension-src/$b/lib/pdfjs/; done"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "6.4.299"
+  }
+}
