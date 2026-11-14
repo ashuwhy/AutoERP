@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## Unreleased
+
+
+### Features
+
+* **CDC company board**: the **Closed** tab asks ERP about each closed role you did not apply to, once, the first time you open it: newest first, three at a time, each row reading Checking until its answer lands. A role you could have applied to reads **Missed**; Not eligible and Applied read as before. A closed role's answer can't change, so it is kept for good: reloading the page or pressing Check eligibility again never asks about it again. Before, every closed role read Check on ERP
+
 ## 2.4.1 (2026-11-13)
 
 

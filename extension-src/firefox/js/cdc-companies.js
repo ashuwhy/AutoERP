@@ -104,7 +104,8 @@ cdcSwitch(async (wanted) => {
 
     const tabOf = (r) => (r.start > now() ? "soon" : r.end < now() ? "closed" : "open");
     let lastTab = new Map(roles.map((r) => [r, tabOf(r)]));
-    const keys = roles.map((r) => r.key).filter(Boolean);
+    const byKey = new Map(roles.filter((r) => r.key).map((r) => [r.key, r]));
+    const keys = [...byKey.keys()];
     const stored = await chrome.storage.local.get(["cdcSeen", "cdcJnf"]);
     if (!wanted()) return stop;
     const seen = stored.cdcSeen ? new Set(stored.cdcSeen) : null;
@@ -132,8 +133,8 @@ cdcSwitch(async (wanted) => {
         if (r.applied) return { cls: "applied", text: "Applied" };
         const v = r.key && verdicts[r.key];
         if (v?.verdict === "applied") return { cls: "applied", text: "Applied" };
-        // A closed role may still say Apply on its cached page; ERP would not take it now.
-        if (v?.verdict === "can" && tabOf(r) !== "closed") return { cls: "can", text: "Can apply" };
+        // A closed role still says Apply on its page; ERP would not take it now, so it is a chance missed.
+        if (v?.verdict === "can") return tabOf(r) === "closed" ? { cls: "missed", text: "Missed" } : { cls: "can", text: "Can apply" };
         if (v?.verdict === "not") return { cls: "not", text: "Not eligible", title: v.sentence };
         if (v?.verdict === "check") return { cls: "check", text: "Check on ERP", why: v.sentence };
         if (checking.has(r.key)) return { cls: "checking", text: "Checking" };
@@ -144,7 +145,8 @@ cdcSwitch(async (wanted) => {
     // An Opens soon role can carry a kept Can apply verdict, but ERP takes no application before the start.
     const due = () => roles.filter((r) => tabOf(r) === "open" && chipOf(r).cls === "can" && !isNaN(r.end));
     function syncIcs() {
-        $("ics").disabled = checking.size > 0 || !due().length;
+        // Closed roles being asked change nothing in the file.
+        $("ics").disabled = [...checking].some((k) => tabOf(byKey.get(k)) !== "closed") || !due().length;
     }
 
     // RFC 5545 by hand. Times go out in UTC, so no VTIMEZONE block and every calendar shows local time.
@@ -310,13 +312,13 @@ cdcSwitch(async (wanted) => {
             })();
             return;
         }
-        const byKey = new Map(roles.map((r) => [r.key, r]));
         [...$("roles").children].forEach((li) => li.dataset.key && tick(li, byKey.get(li.dataset.key)));
     }, 30000);
 
     async function saveVerdicts() {
         // A "check" sentence may only mean the role has not opened yet, so it is asked again next visit.
-        const pruned = Object.fromEntries(Object.entries(verdicts).filter(([k, v]) => keys.includes(k) && v.verdict !== "check"));
+        // A closed role's answer can't change any more, so every one is kept.
+        const pruned = Object.fromEntries(Object.entries(verdicts).filter(([k, v]) => byKey.has(k) && (v.verdict !== "check" || tabOf(byKey.get(k)) === "closed")));
         const applied = new Set(roles.filter((r) => r.applied || verdicts[r.key]?.verdict === "applied").map((r) => r.company));
         await chrome.storage.local.set({ cdcJnf: pruned, cdcApplied: [...applied] });
     }
@@ -373,6 +375,21 @@ cdcSwitch(async (wanted) => {
         return queue;
     }
 
+    // Closed roles not applied to and never answered, newest first, asked once when the Closed tab
+    // first opens; Check eligibility again leaves them alone.
+    let closedAsked = false;
+    function queueClosed() {
+        closedAsked = true;
+        if (!roll || signedOut) return [];
+        const queue = roles.filter((r) => r.key && !r.applied && tabOf(r) === "closed" && !verdicts[r.key]).sort(order.closed);
+        queue.forEach((r) => checking.add(r.key));
+        return queue;
+    }
+
+    // One batch at a time, so ERP never has more than three role pages from the board in flight.
+    let asking = Promise.resolve();
+    const askAll = (queue, answered) => (asking = asking.then(() => checkAll(queue, answered)));
+
     async function checkAll(queue, answered) {
         const worker = async () => {
             while (queue.length && !signedOut && !stopped) {
@@ -398,7 +415,9 @@ cdcSwitch(async (wanted) => {
     for (const t of ["open", "soon", "closed"])
         $(`tab-${t}`).addEventListener("click", () => {
             tab = t;
+            const queue = t === "closed" && !closedAsked ? queueClosed() : [];
             render();
+            if (queue.length) askAll(queue);
         });
     $("search").addEventListener("input", render);
     $("hide").addEventListener("click", () => {
@@ -430,7 +449,7 @@ cdcSwitch(async (wanted) => {
         button.style.width = `${button.getBoundingClientRect().width}px`;
         button.disabled = true;
         button.textContent = `Checking 0 of ${total}`;
-        await checkAll(queue, () => (button.textContent = `Checking ${++done} of ${total}`));
+        await askAll(queue, () => (button.textContent = `Checking ${++done} of ${total}`));
         button.textContent = "Check eligibility again";
         button.style.width = "";
         button.disabled = false;
@@ -444,6 +463,6 @@ cdcSwitch(async (wanted) => {
     });
     if (!wanted()) return stop;
     await saveVerdicts();
-    if (wanted()) checkAll(firstQueue);
+    if (wanted()) askAll(firstQueue);
     return stop;
 });
