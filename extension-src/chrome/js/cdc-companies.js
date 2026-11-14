@@ -143,7 +143,6 @@ cdcSwitch(async (wanted) => {
     let tab = "open";
     let hide = true;
     let hiddenCount = 0;
-    let rowHeight = 0;
     if (!roll) say("AutoERP could not find your roll number on this page, so it does not check eligibility. Open each role on ERP.");
 
     const span = (cls, text) => {
@@ -160,8 +159,11 @@ cdcSwitch(async (wanted) => {
         // A closed role still says Apply on its page; ERP would not take it now, so it is a chance missed.
         if (v?.verdict === "can") return tabOf(r) === "closed" ? { cls: "missed", text: "Missed" } : { cls: "can", text: "Can apply" };
         if (v?.verdict === "not") return { cls: "not", text: "Not eligible", title: v.sentence };
-        if (v?.verdict === "check") return { cls: "check", text: "Check on ERP", why: v.sentence };
+        const closed = tabOf(r) === "closed";
+        if (v?.verdict === "check" && !closed) return { cls: "check", text: "Check on ERP", why: v.sentence };
         if (checking.has(r.key)) return { cls: "checking", text: "Checking" };
+        // Nothing left to check on ERP once a role closes; the hover keeps whatever ERP said.
+        if (closed) return { cls: "closed", text: "Closed", title: v?.sentence || "ERP gave no verdict before it closed" };
         return { cls: "check", text: "Check on ERP" };
     }
 
@@ -337,12 +339,6 @@ cdcSwitch(async (wanted) => {
         $("roles").replaceChildren(...shown.map(row));
         $("none").hidden = shown.length > 0;
         $("none").textContent = { open: "No roles open right now", soon: "No roles opening soon", closed: "No closed roles yet" }[tab];
-        // Every tab's list is as tall as the longest tab's, capped where the list scrolls, so a tab switch
-        // does not move the page. An empty tab gives that height to its message.
-        rowHeight = $("roles").firstElementChild?.offsetHeight || rowHeight;
-        const fill = `min(${rowHeight * Math.max(...Object.values(counts))}px, 70vh)`;
-        $("roles").style.minHeight = shown.length ? fill : "";
-        $("none").style.minHeight = shown.length ? "" : fill;
         syncIcs();
     }
 

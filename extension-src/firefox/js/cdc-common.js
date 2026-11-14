@@ -314,7 +314,7 @@ const CDC_CSS = `
     .chip.applied { background: var(--card); color: #3f3f46; }
     .chip.applied::before { content: "\\2713"; margin-right: 5px; font-weight: 700; }
     .chip.not, .chip.checking { color: #a1a1aa; }
-    .chip.missed { color: #71717a; box-shadow: inset 0 0 0 1px var(--line); }
+    .chip.missed, .chip.closed { color: #71717a; box-shadow: inset 0 0 0 1px var(--line); }
     .chip.check { color: #52525b; box-shadow: inset 0 0 0 1px #d4d4d8; }
     .new { display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 4px; flex: none;
            background: var(--red); color: var(--on-red); font: 700 10px var(--font); letter-spacing: 0.04em; }
