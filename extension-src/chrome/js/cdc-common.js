@@ -94,6 +94,132 @@ function cdcRows(xml, columns) {
     );
 }
 
+// ERP leaves ' unescaped in a notice's <a title='...' href=...>, and the HTML parser ends the title at the first
+// one. Every title has href right after it, so a title runs to its cell's last "' href='"; the quotes inside it
+// become &#39;, which the parser reads back as '. Nothing else in the feed changes.
+function cdcFixTitles(xml) {
+    return xml.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, (cell, html) => {
+        const from = html.indexOf("<a title='") + 10;
+        const to = html.lastIndexOf("' href='");
+        if (from < 10 || to < from) return cell;
+        return `<![CDATA[${html.slice(0, from)}${html.slice(from, to).replaceAll("'", "&#39;")}${html.slice(to)}]]>`;
+    });
+}
+
+// 32-bit FNV-1a over UTF-16 code units. A stored notice page keeps the hash of the feed text it came with, so a
+// notice CDC edits later no longer matches and is read again.
+function cdcHash(text) {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
+    return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+// A notice's own page (ShowContent.jsp): a <div> whose <br>-separated lines are <b>Type</b>, <b>Subject</b>,
+// <b>Company</b>, then the notice as CDC typed it. Read as a string: the HTML parser decodes a raw &reg or &not
+// in a URL's query into a symbol. Only numeric references (&#8288; before a company name) are decoded; lines stay
+// otherwise raw. Blank runs become one "". null without Type or Subject.
+function cdcNoticePage(html) {
+    const div = /<div[^>]*>([\s\S]*?)(?:<\/div>|$)/i.exec(html);
+    if (!div) return null;
+    const lines = div[1].split(/<br\s*\/?>/i).map((line) => line.replace(/\r$/, "").replace(/&#(x[\da-f]+|\d+);/gi, (ref, code) => {
+        const point = code[0].toLowerCase() === "x" ? parseInt(code.slice(1), 16) : Number(code);
+        return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : ref;
+    }));
+    for (const field of ["Type", "Subject", "Company"]) {
+        if (new RegExp(`^\\s*<b>${field}</b>`, "i").test(lines[0] ?? "")) lines.shift();
+        else if (field !== "Company") return null;
+    }
+    const text = [];
+    for (const line of lines) {
+        if (line.trim()) text.push(line);
+        else if (text.length && text.at(-1) !== "") text.push("");
+    }
+    if (text.at(-1) === "") text.pop();
+    return text;
+}
+
+// ERP sends notice pages in windows-1252 (its dash is byte 0x96), and response.text() always reads UTF-8, which turns
+// that byte into U+FFFD. Bytes that are valid UTF-8 are read as UTF-8.
+function cdcPageText(bytes) {
+    try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+        return new TextDecoder("windows-1252").decode(bytes);
+    }
+}
+
+// A page line cut into text and URLs. A URL is http:// or https:// up to whitespace, kept byte for byte; a line has no
+// tags or entities left to undo. Any other scheme (ftp:, javascript:) stays text.
+function cdcSegments(line) {
+    const parts = [];
+    let from = 0;
+    for (const url of line.matchAll(/https?:\/\/\S+/g)) {
+        if (url.index > from) parts.push({ text: line.slice(from, url.index), url: false });
+        parts.push({ text: url[0], url: true });
+        from = url.index + url[0].length;
+    }
+    if (from < line.length) parts.push({ text: line.slice(from), url: false });
+    return parts;
+}
+
+// A notice's tag from the hosts of its URLs: Form if any is a form, else Meeting, else Link; null with no URL. Good on
+// the feed text too, where the next line glues onto a URL's tail but not into its host. A host counts with its subdomains.
+const CDC_FORM_HOSTS = ["forms.gle", "forms.office.com", "forms.cloud.microsoft", "qualtrics.com", "vovici.com", "vovici.net"];
+const CDC_MEETING_HOSTS = ["teams.microsoft.com", "teams.live.com", "meet.google.com", "zoom.us", "webex.com"];
+
+function cdcLinkKind(text) {
+    const urls = [...text.matchAll(/https?:\/\/([^\s/?#]+)(\S*)/g)].map(([, host, path]) => [host.toLowerCase(), path]);
+    if (!urls.length) return null;
+    const under = (host, names) => names.some((name) => host === name || host.endsWith(`.${name}`));
+    if (urls.some(([host, path]) => under(host, CDC_FORM_HOSTS) || host.startsWith("survey.zohopublic.") ||
+        (host === "docs.google.com" && path.startsWith("/forms")))) return "form";
+    if (urls.some(([host]) => under(host, CDC_MEETING_HOSTS))) return "meeting";
+    return "link";
+}
+
+// A notice's deadline: the end of the latest day (IST) its feed text names on or after the posting day, else null.
+// "2nd August 2026", "15th November, 2026", "02-Aug-2026", "July 2nd", "31.07.2026", "31/07/2026". A day with no
+// year is the first such day on or after posting. The feed glues the next line on, so a year may run into a word.
+const CDC_MONTH = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+const CDC_DATES = [
+    [new RegExp(`(?<!\\d)(\\d{1,2})(?:st|nd|rd|th)?[\\s-]*(?:of\\s+)?${CDC_MONTH}\\b[\\s,-]*(20\\d{2})?`, "gi"), (m) => [m[3], m[2], m[1]]],
+    [new RegExp(`\\b${CDC_MONTH}[\\s-]*(\\d{1,2})(?:st|nd|rd|th)?\\b[\\s,]*(20\\d{2})?`, "gi"), (m) => [m[3], m[1], m[2]]],
+    [/(?<!\d)(\d{1,2})[./](\d{1,2})[./](20\d{2})/g, (m) => [m[3], m[2], m[1]]],
+];
+const CDC_IST = 19800000;
+
+function cdcDeadline(text, posted) {
+    const dayEnd = (y, m, d) => Date.UTC(y, m - 1, d, 23, 59, 59, 999) - CDC_IST;
+    const postedDay = new Date(posted + CDC_IST);
+    const from = dayEnd(postedDay.getUTCFullYear(), postedDay.getUTCMonth() + 1, postedDay.getUTCDate());
+    let latest = null;
+    for (const [pattern, parts] of CDC_DATES) {
+        for (const match of text.matchAll(pattern)) {
+            const [year, month, day] = parts(match);
+            const m = /^\d+$/.test(month) ? Number(month) : "janfebmaraprmayjunjulaugsepoctnovdec".indexOf(month.slice(0, 3).toLowerCase()) / 3 + 1;
+            const d = Number(day);
+            if (!(m >= 1 && m <= 12 && d >= 1)) continue;
+            let y = Number(year) || postedDay.getUTCFullYear();
+            if (!year && dayEnd(y, m, d) < from) y++;
+            if (new Date(Date.UTC(y, m - 1, d)).getUTCDate() !== d) continue;
+            const end = dayEnd(y, m, d);
+            if (end >= from && (latest === null || end > latest)) latest = end;
+        }
+    }
+    return latest;
+}
+
+// A form's key: host without www., path without a trailing slash, query without tracking parameters, sorted. Scheme and
+// hash dropped. Reminders that only change ?usp= share a key; Microsoft Forms keep the form in ?id=, so that stays.
+function cdcFormKey(url) {
+    if (!URL.canParse(url)) return url.toLowerCase();
+    const u = new URL(url);
+    const query = [...u.searchParams].filter(([name]) => name !== "usp" && name !== "fbclid" && !name.startsWith("utm_"))
+        .sort(([a, x], [b, y]) => a.localeCompare(b) || x.localeCompare(y));
+    const search = new URLSearchParams(query).toString();
+    return u.hostname.toLowerCase().replace(/^www\./, "") + u.pathname.replace(/\/+$/, "") + (search ? `?${search}` : "");
+}
+
 // ERP seems to answer only the grid of the CDC page it drew last, and the browser's Back can bring a page
 // out of the cache without ERP drawing it, so feed n comes back empty and so does ERP's own grid. A reload
 // makes ERP draw the page. One per page a minute, per tab: an empty answer right after the reload is real
@@ -250,7 +376,7 @@ const CDC_CSS = `
             --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color-scheme: light; }
     * { box-sizing: border-box; margin: 0; }
     .card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 4px; border: 1px solid var(--line);
-            border-radius: 10px; background: var(--paper); color: var(--ink); font: 13px/1.45 var(--font); text-align: left; }
+            border-radius: 6px; background: var(--paper); color: var(--ink); font: 13px/1.45 var(--font); text-align: left; }
     /* The bar's floor is its widest piece, the tab group, so in a narrow frame the head wraps under the filters
        instead of squeezing the tabs into a column. On its own line the head may still be wider than a narrow
        frame, so it wraps there too, right-aligned. */
@@ -262,7 +388,7 @@ const CDC_CSS = `
     .head .wordmark .auto { fill: currentColor; }
     .bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .chips { flex-wrap: wrap; }
-    .chips button { height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+    .chips button { height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink);
                     font: 500 13px var(--font); }
     .chips button:not(.picked):not(:disabled):hover { border-color: #d4d4d8; background: #fafafa; }
     .chips .picked { border-color: var(--ink); background: var(--ink); color: var(--paper); }
@@ -273,18 +399,18 @@ const CDC_CSS = `
     .chips button[aria-pressed="true"]::before { border-color: var(--ink);
         background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5.2 4.2 7.4 8 2.8'/%3E%3C/svg%3E") center no-repeat; }
     .chips button:disabled, .seg button:disabled { opacity: 0.45; cursor: default; }
-    .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--card); }
+    .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--card); }
     .seg button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: none; border-radius: 6px;
                   background: none; color: var(--muted); font: 500 13px var(--font); white-space: nowrap; cursor: pointer; }
     .seg button:not(.picked):not(:disabled):hover { color: var(--ink); }
     .seg button.picked { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(24, 24, 27, 0.06); }
-    .n, .chips .n { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 5px;
+    .n, .chips .n { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 6px;
          background: rgba(24, 24, 27, 0.06); color: var(--muted); font: 500 11px var(--font); font-variant-numeric: tabular-nums; }
     .seg .picked .n { background: var(--card); color: var(--ink); }
     .chips button .n { margin-left: 6px; }
     .chips .picked .n { background: rgba(255, 255, 255, 0.2); color: var(--paper); }
     .chips button[aria-pressed="true"] .n { background: rgba(24, 24, 27, 0.06); color: var(--muted); }
-    input[type="search"] { flex: 1 1 200px; min-width: 0; height: 32px; padding: 0 10px 0 30px; border: 1px solid var(--line); border-radius: 8px;
+    input[type="search"] { flex: 1 1 200px; min-width: 0; height: 32px; padding: 0 10px 0 30px; border: 1px solid var(--line); border-radius: 6px;
             background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23a1a1aa' stroke-width='1.6' stroke-linecap='round'%3E%3Ccircle cx='6' cy='6' r='4.5'/%3E%3Cpath d='M9.5 9.5 13 13'/%3E%3C/svg%3E") no-repeat 10px 50%;
             color: var(--ink); font: 400 13px var(--font); }
     input[type="search"]::placeholder { color: #a1a1aa; }
@@ -299,7 +425,7 @@ const CDC_CSS = `
     button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
     :host([data-input="pointer"]) :focus-visible { outline: none; }
     .muted { color: var(--muted); font-size: 12px; }
-    .note { border-radius: 8px; }
+    .note { border-radius: 6px; }
     .cols, ol > li { display: grid; gap: 4px 14px; align-items: center; }
     .cols { padding: 0 8px 8px; border-bottom: 1px solid var(--line); }
     .cols span { color: var(--muted); font: 600 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; }
@@ -316,9 +442,9 @@ const CDC_CSS = `
     .chip.not, .chip.checking { color: #a1a1aa; }
     .chip.missed, .chip.closed { color: #71717a; box-shadow: inset 0 0 0 1px var(--line); }
     .chip.check { color: #52525b; box-shadow: inset 0 0 0 1px #d4d4d8; }
-    .new { display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 4px; flex: none;
+    .new { display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 6px; flex: none;
            background: var(--red); color: var(--on-red); font: 700 10px var(--font); letter-spacing: 0.04em; }
-    button.act { height: 28px; padding: 0 10px; border: 1px solid #d4d4d8; border-radius: 8px; background: var(--paper); color: var(--ink);
+    button.act { height: 28px; padding: 0 10px; border: 1px solid #d4d4d8; border-radius: 6px; background: var(--paper); color: var(--ink);
                  font: 500 12px var(--font); white-space: nowrap; cursor: pointer; }
     button.act:hover { border-color: #a1a1aa; background: var(--card); }
     button.act:active { transform: scale(0.98); }

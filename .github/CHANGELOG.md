@@ -5,6 +5,9 @@
 
 ### Features
 
+* **CDC notice board**: notice text keeps ERP's line breaks and blank lines, and its links, which open in a new tab. AutoERP reads each notice's own page from ERP for it, once, and keeps the text
+* **CDC notice board**: a tag on each notice says what it asks of you, a form to fill with its deadline, or a list you are in
+* **CDC notice board**: a notice with a form link has a **Mark filled** checkbox after the link. A **Forms to fill** chip counts the open forms you have not marked **Filled** and filters to them. The marks stay on this device; **Forget CDC data** clears them
 * **CDC company board**: the **Closed** tab asks ERP about each closed role you did not apply to, once, the first time you open it: newest first, three at a time, each row reading Checking until its answer lands. A role you could have applied to reads **Missed**; Not eligible and Applied read as before. A closed role's answer can't change, so it is kept for good: reloading the page or pressing Check eligibility again never asks about it again. Before, every closed role read Check on ERP
 * **CDC company board**: Open now and Opens soon list **Can apply** roles first, then Check on ERP, Applied and Not eligible. Rows move only when you change the tab, search or a filter, never while answers land. Closed keeps its newest-first order
 * **CDC company board**: a **sort** menu beside the search: Closing soonest (Opening soonest on Opens soon, Closed most recently on Closed), Highest CTC and Company A-Z. Highest CTC puts rupee amounts first, high to low, then other currencies by code, since AutoERP guesses no exchange rate, then CTCs ERP gives as free text. AutoERP keeps your pick for the next visit
@@ -19,6 +22,7 @@
 * **CDC company board**: a closed role ERP gave no plain answer on reads **Closed** instead of **Check on ERP**, with ERP's own sentence on hover; there is nothing left to check once a role closes
 * **CDC company board**: "N hidden, show" stays beside **Hide not eligible**. At some window widths (around 1300-1430 px) Hide fit beside the tabs and the link dropped to a line of its own under them
 * **CDC notice board**: on a narrow window or a phone, the first notice no longer sits flush against the category chips; the list keeps the same gap under them as on a wide window
+* **CDC notice board**: a notice with an apostrophe in its text ("company's", "won't") now shows in full, and a search finds words past the apostrophe. Before, the text stopped at the first apostrophe; 15 of this year's notices were cut that way
 
 ## 2.4.1 (2026-11-13)
 

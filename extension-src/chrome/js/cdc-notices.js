@@ -3,7 +3,8 @@
 // newest first). Cells 5 (coordinators' rolls), 8 (Upload) and 9 (Deactivate) are never parsed.
 // Attachments are read for my roll (cdcRoll from the company board, else the login roll) in pdf-reader.html,
 // three at a time, every unread one on open, newest first, the ones the search or filter shows before the rest.
-// Only the verdict is kept.
+// Only the verdict is kept. Each notice's own page (ShowContent.jsp, what ViewNotice opens) is read the same way, three
+// more at a time, and kept as its lines (cdcNotes); a row shows the feed text until its page is in.
 cdcSwitch(async (wanted) => {
     const anchor = await cdcAnchor(54);
     if (!wanted() || !anchor || document.getElementById("autoerp-cdc")) return;
@@ -15,19 +16,34 @@ cdcSwitch(async (wanted) => {
         .body { grid-area: body; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
         .act { grid-area: act; justify-self: end; }
         li .when { padding-top: 2px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-        .tag { display: inline-block; max-width: 100%; height: 20px; padding: 0 7px; border-radius: 6px; background: var(--card); color: #3f3f46;
-               font: 500 11px/20px var(--font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tag { display: inline-block; max-width: 100%; height: 20px; padding: 0 8px; border-radius: 6px; background: #e4e4e7; color: var(--ink);
+               font: 600 11px/20px var(--font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .line { display: flex; align-items: center; gap: 8px; }
         .line .tag { flex: none; }
-        .tag.pdf-in { background: #ecfdf3; color: #067647; box-shadow: inset 0 0 0 1px #abefc6; }
-        .tag.pdf-out { color: var(--muted); }
+        .tag.pdf-in { background: #067647; color: #fff; }
+        .tag.pdf-out { background: #71717a; color: #fff; }
+        .tag.kind { background: #d4d4d8; color: var(--ink); }
+        .due { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
+        .due.today { color: var(--red-text); }
+        /* Inline-block, not flex: the line then takes the button's baseline from its text, not from the empty circle. */
+        button.filled { margin-left: 2px; padding: 0 2px; border: none; background: none; color: var(--muted); font: 500 12px/1 var(--font); cursor: pointer; }
+        button.filled::before { content: ""; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 15px; height: 15px;
+                                margin-right: 5px; vertical-align: middle; border: 1.5px solid #a1a1aa; border-radius: 50%; color: #fff; font: 700 10px/1 var(--font); }
+        button.filled:hover::before { border-color: #067647; }
+        button.filled[aria-pressed="true"] { color: #067647; }
+        button.filled[aria-pressed="true"]::before { content: "\\2713"; border-color: #067647; background: #067647; }
         .subject { font-weight: 600; }
         .text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; color: #3f3f46; font-size: 13px;
                 white-space: pre-line; overflow-wrap: anywhere; }
         .text.full { display: block; }
-        #cats button { height: 26px; padding: 0 9px; border-radius: 7px; font-size: 12px; }
+        .text .ln { display: block; }
+        .text .gap { display: block; height: 6px; }
+        .text a { color: #2563eb; text-decoration-color: #93c5fd; text-underline-offset: 2px; }
+        .text a:hover { color: #1d4ed8; text-decoration-color: currentColor; }
+        #cats button { height: 26px; padding: 0 9px; border-radius: 6px; font-size: 12px; }
         /* Red only for urgency: under-6h deadlines, NEW and Urgent notices. */
-        #cats button[data-cat="Urgent"]:not(.picked), .tag[data-cat="Urgent"] { border-color: #fecdca; background: #fef3f2; color: var(--red-text); }
+        #cats button[data-cat="Urgent"]:not(.picked) { border-color: #fecdca; background: #fef3f2; color: var(--red-text); }
+        .tag[data-cat="Urgent"] { background: var(--red); color: var(--on-red); }
         @media (max-width: 760px) {
             .cols { display: none; }
             .cols + ol { margin-top: 0; }
@@ -51,6 +67,7 @@ cdcSwitch(async (wanted) => {
                         <button id="mine" aria-pressed="false">My companies</button>
                         <button id="newonly" aria-pressed="false">New<span class="n">0</span></button>
                         <button id="withme" aria-pressed="false" disabled>Lists with me<span class="n">0</span></button>
+                        <button id="tofill" aria-pressed="false" disabled>Forms to fill<span class="n">0</span></button>
                     </div>
                     <span class="muted" id="mine-why" hidden>Open the company page first</span>
                     <span class="muted" id="pdf-why" hidden>Open the company page once so AutoERP knows your roll number.</span>
@@ -67,14 +84,23 @@ cdcSwitch(async (wanted) => {
             <p class="empty" id="none" hidden>No notices here.</p>
         </section>`;
 
+    // Forget pressed while the feed loads: the snapshot below predates it, and forget() is not attached yet.
+    let forgotEarly = false;
+    const early = (changes, area) => {
+        if (area === "local" && ["cdcPdf", "cdcLastNotice", "cdcNotes"].some((k) => k in changes && !("newValue" in changes[k]))) forgotEarly = true;
+    };
+    chrome.storage.onChanged.addListener(early);
     const [{ shadow, show }, feed, stored] = await Promise.all([
         mountPanel("autoerp-cdc", anchor, CSS, HTML),
         cdcFetch("ERPMonitoring.htm?action=fetchData&jqqueryid=54").catch(() => null),
-        chrome.storage.local.get(["cdcApplied", "cdcLastNotice", "cdcRoll", "login", "cdcPdf"]),
+        chrome.storage.local.get(["cdcApplied", "cdcLastNotice", "cdcRoll", "login", "cdcPdf", "cdcNotes", "cdcFilled"]),
     ]);
+    chrome.storage.onChanged.removeListener(early);
+    if (forgotEarly) for (const k of ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice", "cdcRoll", "cdcPdf", "cdcNotes", "cdcFilled"]) delete stored[k];
     const $ = (id) => shadow.getElementById(id);
     const stop = () => {
         chrome.storage.onChanged.removeListener(forget);
+        chrome.storage.onChanged.removeListener(filledChanged);
         shadow.host.remove();
     };
     if (!wanted()) return stop;
@@ -94,11 +120,12 @@ cdcSwitch(async (wanted) => {
         return stop;
     }
     const last = stored.cdcLastNotice;
-    const notices = cdcRows(feed.text, [0, 1, 2, 3, 4, 6, 7]).map((cells) => {
+    const notices = cdcRows(cdcFixTitles(feed.text), [0, 1, 2, 3, 4, 6, 7]).map((cells) => {
         const serial = Number(cells[0]?.textContent);
         const subject = cells[3]?.textContent.trim() || "";
         const text = cells[4]?.querySelector("a")?.getAttribute("title") || cells[4]?.textContent.trim() || "";
         const download = cells[7]?.querySelector("a")?.textContent.trim() === "Download";
+        const kind = cdcLinkKind(text);
         return {
             serial,
             type: cells[1]?.textContent.trim() || "",
@@ -107,8 +134,12 @@ cdcSwitch(async (wanted) => {
             text,
             posted: istTime(cells[6]?.textContent || ""),
             attach: download ? cdcCall(cells[7], "TPNotice") : null,
+            view: cdcCall(cells[4], "ViewNotice"),
+            feedHash: cdcHash(text),
+            lines: null,
             isNew: typeof last === "number" && serial > last,
-            hay: `${subject} ${text}`.toLowerCase(),
+            kind,
+            hay: `${subject} ${text}${kind ? ` ${kind}` : ""}`.toLowerCase(),
         };
     });
     if (cdcNoRows(54, notices.length, say)) return stop;
@@ -136,17 +167,70 @@ cdcSwitch(async (wanted) => {
             const v = saved[pdfKey(n)];
             if (v === "in" || v === "out" || v === "none") verdicts[pdfKey(n)] = v;
         }
-    let forgot = false;
+    // Each page's lines are kept with the hash of the feed text they came with: a notice CDC edited since no longer
+    // matches, so it shows its new feed text and is read again. Pruned to the feed's notices, as cdcPdf is.
+    const noteKey = (n) => n.view.join(":");
+    const noteTexts = {};
+    for (const n of notices) {
+        const entry = n.view && stored.cdcNotes?.[noteKey(n)];
+        if (!Array.isArray(entry)) continue;
+        noteTexts[noteKey(n)] = entry;
+        if (entry[0] === n.feedHash) n.lines = entry[1] ? entry[1].split("\n") : [];
+    }
+    // A form is its link's key (cdcFormKey), so a reposted notice and its follow-up are one form. Before the page is read
+    // a form-kind notice stands alone under its serial: no ViewNotice means no noteKey, and the key is never stored.
+    const formOf = (n) => {
+        if (!n.lines) return n.kind === "form" ? `#${n.serial}` : null;
+        for (const line of n.lines)
+            for (const part of cdcSegments(line)) if (part.url && cdcLinkKind(part.text) === "form") return cdcFormKey(part.text);
+        return null;
+    };
+    for (const n of notices) n.form = formOf(n);
+    let filled = new Set(stored.cdcFilled || []);
+    let forms = new Map();
+    // The feed is newest first, so a form's first notice is its newest. It is open until its latest date, or two weeks
+    // after it was first posted when no notice gives one; the last day counts in full.
+    function mapForms() {
+        forms = new Map();
+        for (const n of notices) {
+            if (!n.form) continue;
+            n.due ??= cdcDeadline(n.text, n.posted);
+            const f = forms.get(n.form) || { notices: [], deadline: null, open: false };
+            forms.set(n.form, f);
+            f.notices.push(n);
+            if (n.due !== null && (f.deadline === null || n.due > f.deadline)) f.deadline = n.due;
+        }
+        for (const f of forms.values()) f.open = Date.now() <= (f.deadline ?? f.notices[0].posted + 14 * 864e5);
+    }
+    mapForms();
+    const qualifies = (n) => Boolean(n.form) && forms.get(n.form).open && !filled.has(n.form) && forms.get(n.form).notices[0] === n;
+
+    let notesTimer = null;
+    let notesDirty = false;
+    let forgot = forgotEarly;
     // Forget CDC data in the popup with this tab open: a read in flight would write the verdicts back. Before the
     // first verdict there is no cdcPdf to remove, but cdcLastNotice was set above.
     function forget(changes, area) {
-        if (area !== "local" || !["cdcPdf", "cdcLastNotice"].some((k) => k in changes && !("newValue" in changes[k]))) return;
+        if (area !== "local" || !["cdcPdf", "cdcLastNotice", "cdcNotes"].some((k) => k in changes && !("newValue" in changes[k]))) return;
         forgot = true;
+        clearTimeout(notesTimer);
         for (const k in verdicts) delete verdicts[k];
+        for (const k in noteTexts) delete noteTexts[k];
     }
     chrome.storage.onChanged.addListener(forget);
+    // Another tab, or Forget in the popup (no newValue: none filled). Its own writes echo back as the same set.
+    function filledChanged(changes, area) {
+        if (area !== "local" || !("cdcFilled" in changes)) return;
+        const next = changes.cdcFilled.newValue || [];
+        if (next.length === filled.size && next.every((k) => filled.has(k))) return;
+        filled = new Set(next);
+        refreshMarks();
+    }
+    chrome.storage.onChanged.addListener(filledChanged);
     if (roll && stored.cdcPdf && (stored.cdcPdf.roll !== roll || Object.keys(verdicts).length < Object.keys(saved).length))
         await chrome.storage.local.set({ cdcPdf: { roll, verdicts } });
+    if (stored.cdcNotes && !forgot && Object.keys(noteTexts).length < Object.keys(stored.cdcNotes).length)
+        await chrome.storage.local.set({ cdcNotes: noteTexts });
     if (!wanted()) return stop;
     $("pdf-why").hidden = Boolean(roll);
     // The text's verdict is worked out on every visit and never stored; cdcPdf holds the PDFs' only.
@@ -170,11 +254,15 @@ cdcSwitch(async (wanted) => {
     let mine = false;
     let newOnly = false;
     let withMe = false;
+    let toFill = false;
     let query = "";
     let reading = null;
+    let notesRun = null;
     let filtered = [];
     let shown = 0;
     const BATCH = 100;
+    const KIND_WORD = { form: "Form", meeting: "Meeting", link: "Link" };
+    const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     const span = (cls, text) => {
         const el = document.createElement("span");
@@ -182,6 +270,16 @@ cdcSwitch(async (wanted) => {
         el.textContent = text;
         return el;
     };
+
+    // The form's latest date, on every notice of an open form not yet filled; red on its last day (IST).
+    function dueSpan(n) {
+        const f = n.form && forms.get(n.form);
+        if (!f || f.deadline === null || !f.open || filled.has(n.form)) return null;
+        const d = new Date(f.deadline + CDC_IST);
+        const el = span("due", `by ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`);
+        if (Math.floor((f.deadline + CDC_IST) / 864e5) === Math.floor((Date.now() + CDC_IST) / 864e5)) el.classList.add("today");
+        return el;
+    }
 
     function item(n) {
         const li = document.createElement("li");
@@ -202,11 +300,18 @@ cdcSwitch(async (wanted) => {
         subject.append(...cdcMarked(n.subject, query));
         line.append(subject);
         if (n.isNew) line.append(span("new", "NEW"));
+        if (n.kind) {
+            const kind = span("tag kind", KIND_WORD[n.kind]);
+            kind.dataset.kind = n.kind;
+            line.append(kind);
+        }
+        const due = dueSpan(n);
+        if (due) line.append(due);
         const listed = pdfTag(listing(n));
         if (listed) line.append(listed);
         const text = document.createElement("p");
         text.className = "text";
-        text.append(...cdcMarked(n.text, query));
+        text.append(...(n.lines ? formatText(n) : cdcMarked(n.text, query)));
         const more = document.createElement("button");
         more.className = "link more";
         more.textContent = "more";
@@ -227,6 +332,77 @@ cdcSwitch(async (wanted) => {
         return li;
     }
 
+    // A page's lines: a block per line, one small gap per blank run, its URLs as links opening in a new tab, the search
+    // marked inside text and links alike.
+    function formatText(n) {
+        let marked = false;
+        return n.lines.map((line) => {
+            if (!line) return span("gap", "");
+            const ln = span("ln", "");
+            for (const part of cdcSegments(line)) {
+                if (!part.url) {
+                    ln.append(...cdcMarked(part.text, query));
+                    continue;
+                }
+                const link = document.createElement("a");
+                link.href = part.text;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.append(...cdcMarked(part.text, query));
+                ln.append(link);
+                if (!marked && cdcLinkKind(part.text) === "form") {
+                    marked = true;
+                    const key = cdcFormKey(part.text);
+                    const button = document.createElement("button");
+                    button.className = "filled";
+                    button.dataset.form = key;
+                    setFilled(button, filled.has(key));
+                    ln.append(button);
+                }
+            }
+            return ln;
+        });
+    }
+
+    function setFilled(button, on) {
+        button.textContent = on ? "Filled" : "Mark filled";
+        button.setAttribute("aria-pressed", String(on));
+    }
+
+    function showFormState() {
+        const count = notices.filter(qualifies).length;
+        $("tofill").lastChild.textContent = count;
+        $("tofill").disabled = !count && !toFill;
+    }
+
+    // A mark, another tab or a page landing: every shown row follows in place. With the chip on, rows that stopped
+    // qualifying are taken out where they stand; one that started to, or an emptied list, goes through render().
+    function refreshMarks() {
+        showFormState();
+        if (toFill) {
+            const want = new Set(visible());
+            const have = new Set(filtered);
+            if (!want.size || [...want].some((n) => !have.has(n))) return render();
+            for (const li of [...$("notices").children])
+                if (!want.has(byRow(li))) {
+                    li.remove();
+                    shown--;
+                }
+            filtered = filtered.filter((n) => want.has(n));
+            showTypeCounts();
+            showCount();
+        }
+        for (const li of $("notices").children) {
+            const n = byRow(li);
+            const button = li.querySelector("button.filled");
+            if (button) setFilled(button, filled.has(button.dataset.form));
+            li.querySelector(".due")?.remove();
+            const due = dueSpan(n);
+            const line = li.querySelector(".line");
+            if (due) line.insertBefore(due, line.querySelector(".pdf-in, .pdf-out"));
+        }
+    }
+
     function pdfTag(verdict) {
         if (verdict === "in") return span("tag pdf-in", "You're in this list");
         if (verdict === "out") return span("tag pdf-out", "Not in this list");
@@ -243,15 +419,19 @@ cdcSwitch(async (wanted) => {
             return text.scrollHeight > text.clientHeight + 1;
         });
         batch.forEach((li, i) => {
-            const open = li.querySelector(".text").classList.toggle("full", Boolean(li.querySelector(".text mark")));
+            const open = li.querySelector(".text").classList.toggle("full", toFill || Boolean(li.querySelector(".text mark")));
             li.querySelector(".more").textContent = open ? "less" : "more";
             li.querySelector(".more").hidden = !clamped[i];
         });
     }
 
     function showCount() {
-        $("count").textContent = reading
-            ? `Reading PDFs ${Math.min(reading.done + 1, reading.total)} of ${reading.total}`
+        const runs = [
+            notesRun && `notices ${Math.min(notesRun.done + 1, notesRun.total)} of ${notesRun.total}`,
+            reading && `PDFs ${Math.min(reading.done + 1, reading.total)} of ${reading.total}`,
+        ].filter(Boolean);
+        $("count").textContent = runs.length
+            ? `Reading ${runs.join(", ")}`
             : filtered.length === notices.length
               ? `${notices.length} notices`
               : `${filtered.length} of ${notices.length} notices`;
@@ -322,26 +502,123 @@ cdcSwitch(async (wanted) => {
         showPdfState();
     }
 
-    function render() {
-        // In the page before more() measures which notices are clamped.
-        show();
-        query = $("search").value.trim().toLowerCase();
-        // Type counts follow every other filter, like the company tabs follow the search.
-        const others = notices.filter(
+    // The whole map in each write, at most one every 2 s while pages arrive and one when the run ends; none after Forget
+    // or the switch going off.
+    function writeNotes() {
+        clearTimeout(notesTimer);
+        notesTimer = null;
+        if (!notesDirty || forgot || !wanted()) return;
+        notesDirty = false;
+        chrome.storage.local.set({ cdcNotes: noteTexts });
+    }
+
+    // The row keeps its open or closed state; "more" shows only where the new lines overflow the clamp.
+    function swapText(n) {
+        const li = [...$("notices").children].find((el) => el.dataset.serial === String(n.serial));
+        if (!li) return;
+        const text = li.querySelector(".text");
+        const open = text.classList.contains("full");
+        text.classList.remove("full");
+        text.replaceChildren(...formatText(n));
+        li.querySelector(".more").hidden = text.scrollHeight <= text.clientHeight + 1;
+        text.classList.toggle("full", open);
+    }
+
+    // In readPdfs' order and with its rules for signed out and errors. A page with no Type or Subject line is skipped
+    // and read again next visit; three of those in a row (as they arrive) mean ERP changed its page, and the run stops:
+    // stopping at the first would stop at that notice every visit, and nothing after it would ever be read.
+    async function readNotes() {
+        const unread = new Set(notices.filter((n) => n.view && !n.lines));
+        if (!unread.size) return;
+        notesRun = { done: 0, total: unread.size };
+        showCount();
+        let halt = false;
+        let odd = 0;
+        async function readOne(n) {
+            const [year, id] = n.view;
+            const url = new URL(`ShowContent.jsp?year=${encodeURIComponent(year)}&id=${encodeURIComponent(id)}`, location.href).href;
+            let html;
+            try {
+                const response = await cdcPageFetch(url, { credentials: "include" });
+                if (response.url.includes("/SSOAdministration/")) {
+                    if (!halt && wanted()) say("Signed out of ERP.");
+                    halt = true;
+                    return;
+                }
+                if (!response.ok) return;
+                html = cdcPageText(await response.arrayBuffer());
+            } catch {
+                return;
+            }
+            const lines = cdcNoticePage(html);
+            if (!lines) {
+                if (++odd >= 3) halt = true;
+                return;
+            }
+            odd = 0;
+            if (forgot || !wanted()) return;
+            const was = n.form;
+            n.lines = lines;
+            n.form = formOf(n);
+            noteTexts[noteKey(n)] = [n.feedHash, lines.join("\n")];
+            notesDirty = true;
+            notesTimer ??= setTimeout(writeNotes, 2000);
+            swapText(n);
+            if (was || n.form) {
+                mapForms();
+                refreshMarks();
+            }
+        }
+        const worker = async () => {
+            while (!halt && !forgot && wanted() && unread.size) {
+                // Then the open forms: the chip and "Mark filled" are only as good as the pages behind them.
+                const n =
+                    filtered.find((x) => unread.has(x)) ??
+                    notices.find((x) => unread.has(x) && x.form && forms.get(x.form).open) ??
+                    unread.values().next().value;
+                unread.delete(n);
+                await readOne(n);
+                notesRun.done++;
+                showCount();
+            }
+        };
+        await Promise.all([worker(), worker(), worker()]);
+        notesRun = null;
+        writeNotes();
+        if (wanted()) showCount();
+    }
+
+    // Every filter but the type tabs, whose counts follow the rest like the company tabs follow the search.
+    const unTyped = () =>
+        notices.filter(
             (n) =>
                 (!category || n.category === category) &&
                 (!mine || mineSet.has(n)) &&
                 (!newOnly || n.isNew) &&
                 (!withMe || listing(n) === "in") &&
+                (!toFill || qualifies(n)) &&
                 (!query || n.hay.includes(query))
         );
-        filtered = others.filter((n) => type === "all" || n.type === type.toUpperCase());
+    const visible = () => unTyped().filter((n) => type === "all" || n.type === type.toUpperCase());
+    const rowMap = new Map(notices.map((n) => [String(n.serial), n]));
+    const byRow = (li) => rowMap.get(li.dataset.serial);
+
+    function showTypeCounts() {
+        const others = unTyped();
         for (const t of ["all", "placement", "internship"])
             $(`type-${t}`).lastChild.textContent = others.filter((n) => t === "all" || n.type === t.toUpperCase()).length;
+    }
+
+    function render() {
+        // In the page before more() measures which notices are clamped.
+        show();
+        query = $("search").value.trim().toLowerCase();
+        filtered = visible();
+        showTypeCounts();
         showCount();
         for (const t of ["all", "placement", "internship"]) $(`type-${t}`).classList.toggle("picked", t === type);
         for (const chip of $("cats").children) chip.classList.toggle("picked", chip.dataset.cat === category);
-        for (const [id, on] of [["mine", mine], ["newonly", newOnly], ["withme", withMe]]) {
+        for (const [id, on] of [["mine", mine], ["newonly", newOnly], ["withme", withMe], ["tofill", toFill]]) {
             $(id).classList.toggle("picked", on);
             $(id).setAttribute("aria-pressed", String(on));
         }
@@ -350,6 +627,7 @@ cdcSwitch(async (wanted) => {
         shown = 0;
         more();
         $("none").hidden = filtered.length > 0;
+        showFormState();
     }
 
     $("notices").addEventListener("scroll", () => {
@@ -381,8 +659,27 @@ cdcSwitch(async (wanted) => {
         render();
     });
 
+    $("tofill").addEventListener("click", () => {
+        toFill = !toFill;
+        render();
+    });
+    // The state is the stored set read fresh, so a mark made in another tab a moment ago is not lost.
+    $("notices").addEventListener("click", async (event) => {
+        const button = event.target.closest("button.filled");
+        if (!button) return;
+        const key = button.dataset.form;
+        const on = !filled.has(key);
+        const next = new Set((await chrome.storage.local.get("cdcFilled")).cdcFilled || []);
+        if (on) next.add(key);
+        else next.delete(key);
+        await chrome.storage.local.set({ cdcFilled: [...next] });
+        filled = next;
+        refreshMarks();
+    });
+
     render();
     showPdfState();
     if (roll) readPdfs();
+    readNotes();
     return stop;
 });

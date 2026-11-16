@@ -21,7 +21,7 @@ cdcSwitch(async (wanted) => {
         li .ctc.free { color: var(--muted); font: 500 11px/1.3 var(--font); }
         li .left { font-variant-numeric: tabular-nums; white-space: nowrap; }
         li .left.soon { color: var(--red-text); font-weight: 600; }
-        #sort { flex: none; height: 32px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 8px; -webkit-appearance: none; appearance: none;
+        #sort { flex: none; height: 32px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 6px; -webkit-appearance: none; appearance: none;
                 background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%2371717a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E") no-repeat right 10px center;
                 color: var(--ink); font: 500 13px var(--font); cursor: pointer; }
         #sort:hover { border-color: #d4d4d8; }
