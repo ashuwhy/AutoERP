@@ -13,7 +13,7 @@
   <a href="https://addons.mozilla.org/en-US/firefox/addon/autoerp/"><picture><source media="(prefers-color-scheme: dark)" srcset="brand/readme/add-firefox-dark.svg"><img src="brand/readme/add-firefox.svg" alt="Add to Firefox" height="48"></picture></a>
 </p>
 
-![The AutoERP popup](brand/store/screenshot-1.png)
+![The CDC company board](brand/store/screenshot-4.png)
 
 ## Install
 
@@ -41,6 +41,8 @@ AutoERP never asks for an OTP by itself, so a tab loading in the background, a r
 
 Once you log out, AutoERP leaves the login page alone until you reload it. Your login stays on your computer, unencrypted, and goes only to ERP's login and password-change pages.
 
+![The AutoERP popup](brand/store/screenshot-1.png)
+
 **Feedback forms**
 
 1. Log in to ERP.
@@ -61,8 +63,6 @@ Open CDC's company page or notice board in ERP and AutoERP puts its own board ab
 - Each notice carries a tag for what it asks of you: a form to fill, a list you are in, a deadline.
 - **Forms to fill**: a chip above the list counts the open forms you have not marked **Filled**, and filters to them; the mark stays on this device.
 - Calendar: **Add deadlines to calendar** on the company board downloads an .ics with every deadline you can apply to now. Apple Calendar and Outlook remind you 3 h and 30 min before; Google Calendar takes it through **Settings > Import & export** and uses its own reminders.
-
-![The CDC company board](brand/store/screenshot-4.png)
 
 ![The CDC notice board](brand/store/screenshot-5.png)
 
