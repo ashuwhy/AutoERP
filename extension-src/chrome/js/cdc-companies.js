@@ -390,7 +390,7 @@ cdcSwitch(async (wanted) => {
             const cls = chipOf(r).cls === "checking" ? "check" : chipOf(r).cls;
             if (!(r.company in companies) || states.indexOf(cls) < states.indexOf(companies[r.company])) companies[r.company] = cls;
         }
-        await chrome.storage.local.set({ cdcJnf: pruned, cdcApplied: [...applied], cdcCompanies: companies });
+        await chrome.storage.local.set({ cdcJnf: pruned, cdcApplied: [...applied], cdcCompanies: companies, cdcCompaniesAt: Date.now() });
     }
 
     // ERP's role page says one of: "Apply with CV1 ...", "Cancel apply View applied Resume", or why

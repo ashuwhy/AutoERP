@@ -222,8 +222,12 @@ function cdcFormKey(url) {
 
 // The company a Multiple Companies line gives its form: the text before the link, less "1." or "2)" and the hyphen,
 // dash or colon before the URL. Live lines carry word joiners (U+2060) round the number, which \s does not match.
+// A line that names no company ("Google Form link:") gives none, so the board cannot rule its form out.
+const CDC_GENERIC = new Set(["google", "microsoft", "ms", "form", "forms", "link", "here", "click", "registration", "fill", "please", "the"]);
+
 function cdcLineCompany(before) {
-    return before.replace(/^[\s\u2060]*\d+\s*[.)][\s\u2060]*/, "").replace(/[\s\u2060:\-\u2013\u2014]+$/, "").trim();
+    const name = before.replace(/^[\s\u2060]*\d+\s*[.)][\s\u2060]*/, "").replace(/[\s\u2060:\-\u2013\u2014]+$/, "").trim();
+    return companyTokens(name).split(" ").some((word) => word && !CDC_GENERIC.has(word)) ? name : "";
 }
 
 // ERP seems to answer only the grid of the CDC page it drew last, and the browser's Back can bring a page

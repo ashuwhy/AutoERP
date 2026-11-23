@@ -21,7 +21,7 @@ cdcSwitch(async (wanted) => {
         .line { display: flex; align-items: center; gap: 8px; }
         .line .tag { flex: none; }
         .tag.pdf-in { background: #067647; color: #fff; }
-        .tag.pdf-out { background: #71717a; color: #fff; }
+        .tag.pdf-out, .notmine.out { background: #71717a; color: #fff; }
         .tag.kind { background: #d4d4d8; color: var(--ink); }
         .due { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
         .due.today { color: var(--red-text); }
@@ -95,11 +95,11 @@ cdcSwitch(async (wanted) => {
     const [{ shadow, show }, feed, stored] = await Promise.all([
         mountPanel("autoerp-cdc", anchor, CSS, HTML),
         cdcFetch("ERPMonitoring.htm?action=fetchData&jqqueryid=54").catch(() => null),
-        chrome.storage.local.get(["cdcApplied", "cdcLastNotice", "cdcRoll", "login", "cdcPdf", "cdcNotes", "cdcFilled", "cdcCompanies"]),
+        chrome.storage.local.get(["cdcApplied", "cdcLastNotice", "cdcRoll", "login", "cdcPdf", "cdcNotes", "cdcFilled", "cdcCompanies", "cdcCompaniesAt"]),
     ]);
     chrome.storage.onChanged.removeListener(early);
     if (forgotEarly)
-        for (const k of ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice", "cdcRoll", "cdcPdf", "cdcNotes", "cdcFilled", "cdcCompanies"]) delete stored[k];
+        for (const k of ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice", "cdcRoll", "cdcPdf", "cdcNotes", "cdcFilled", "cdcCompanies", "cdcCompaniesAt"]) delete stored[k];
     const $ = (id) => shadow.getElementById(id);
     const stop = () => {
         chrome.storage.onChanged.removeListener(forget);
@@ -203,6 +203,8 @@ cdcSwitch(async (wanted) => {
     for (const n of notices) n.forms = formsOf(n);
     let filled = new Set(stored.cdcFilled || []);
     let companyStates = stored.cdcCompanies;
+    let companiesAt = stored.cdcCompaniesAt;
+    const istDay = (ms) => Math.floor((ms + 198e5) / 864e5);
     const stateMemo = new Map();
     let forms = new Map();
     // The feed is newest first, so a form's first notice is its newest. It is open until its latest date, or two weeks
@@ -257,6 +259,10 @@ cdcSwitch(async (wanted) => {
             stateMemo.clear();
             changed = true;
         }
+        if ("cdcCompaniesAt" in changes) {
+            changed ||= istDay(changes.cdcCompaniesAt.newValue) !== istDay(companiesAt);
+            companiesAt = changes.cdcCompaniesAt.newValue;
+        }
         if (changed) refreshMarks();
     }
     chrome.storage.onChanged.addListener(marksChanged);
@@ -273,10 +279,12 @@ cdcSwitch(async (wanted) => {
         return both.includes("in") ? "in" : both.includes("out") ? "out" : "none";
     };
 
-    // Whose form it is: not mine when its lists leave me out (one that has me wins), or when every company it is for
-    // reads missed, not eligible or closed on the company board. A company's state is the best over the board names
-    // sameCompany matches; one the board does not know, or no company, keeps the form mine. Each name is matched once
-    // until the board changes, since every keystroke asks for every form and the board has about a hundred names.
+    // Whose form it is: not mine when every notice carrying it has a list that leaves me out, or when every company it is
+    // for reads missed, not eligible or closed on the company board. A list that has me keeps it mine whatever the board
+    // says, and so does a form posted on or after the IST day I last opened the company page, which may not know its
+    // company yet. A company's state is the best over the board names sameCompany matches; one the board does not know,
+    // or no company, keeps the form mine. Each name is matched once until the board changes, since every keystroke asks
+    // for every form and the board has about a hundred names.
     const ORDER = ["applied", "can", "check", "missed", "not", "closed"];
     const GONE = { missed: "Missed", not: "Not eligible", closed: "Not applied" };
     function stateOf(name) {
@@ -290,8 +298,8 @@ cdcSwitch(async (wanted) => {
         const f = forms.get(key);
         const lists = f.notices.map(listing);
         if (lists.includes("in")) return null;
-        if (lists.includes("out")) return "Not in this list";
-        if (!companyStates) return null;
+        if (lists.every((l) => l === "out")) return "Not in this list";
+        if (!companyStates || istDay(f.notices[0].posted) >= istDay(companiesAt)) return null;
         const states = [...f.companies].map((name) => name && stateOf(name));
         return states.every((s) => GONE[s]) ? GONE[ORDER.find((s) => states.includes(s))] : null;
     }
@@ -417,7 +425,7 @@ cdcSwitch(async (wanted) => {
     function mark(key) {
         const why = !filled.has(key) && notMine(key);
         if (why) {
-            const label = span("notmine", why);
+            const label = span(why === "Not in this list" ? "notmine out" : "notmine", why);
             label.dataset.form = key;
             return label;
         }
