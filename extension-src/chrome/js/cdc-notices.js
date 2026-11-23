@@ -25,6 +25,7 @@ cdcSwitch(async (wanted) => {
         .tag.kind { background: #d4d4d8; color: var(--ink); }
         .due { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
         .due.today { color: var(--red-text); }
+        .notmine { margin-left: 4px; color: var(--muted); font-size: 11px; white-space: nowrap; }
         /* Inline-block, not flex: the line then takes the button's baseline from its text, not from the empty circle. */
         button.filled { margin-left: 2px; padding: 0 2px; border: none; background: none; color: var(--muted); font: 500 12px/1 var(--font); cursor: pointer; }
         button.filled::before { content: ""; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 15px; height: 15px;
@@ -93,10 +94,11 @@ cdcSwitch(async (wanted) => {
     const [{ shadow, show }, feed, stored] = await Promise.all([
         mountPanel("autoerp-cdc", anchor, CSS, HTML),
         cdcFetch("ERPMonitoring.htm?action=fetchData&jqqueryid=54").catch(() => null),
-        chrome.storage.local.get(["cdcApplied", "cdcLastNotice", "cdcRoll", "login", "cdcPdf", "cdcNotes", "cdcFilled"]),
+        chrome.storage.local.get(["cdcApplied", "cdcLastNotice", "cdcRoll", "login", "cdcPdf", "cdcNotes", "cdcFilled", "cdcCompanies"]),
     ]);
     chrome.storage.onChanged.removeListener(early);
-    if (forgotEarly) for (const k of ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice", "cdcRoll", "cdcPdf", "cdcNotes", "cdcFilled"]) delete stored[k];
+    if (forgotEarly)
+        for (const k of ["cdcSeen", "cdcJnf", "cdcApplied", "cdcLastNotice", "cdcRoll", "cdcPdf", "cdcNotes", "cdcFilled", "cdcCompanies"]) delete stored[k];
     const $ = (id) => shadow.getElementById(id);
     const stop = () => {
         chrome.storage.onChanged.removeListener(forget);
@@ -177,15 +179,25 @@ cdcSwitch(async (wanted) => {
         noteTexts[noteKey(n)] = entry;
         if (entry[0] === n.feedHash) n.lines = entry[1] ? entry[1].split("\n") : [];
     }
-    // A form is its link's key (cdcFormKey), so a reposted notice and its follow-up are one form; a notice holds each of
-    // its forms once, in page order. Before the page is read a form-kind notice stands alone under its serial: no
-    // ViewNotice means no noteKey, and the key is never stored.
+    // A form is its link's key (cdcFormKey), so a reposted notice and its follow-up are one form. A notice holds each of
+    // its forms once per company, in page order: the subject's, or in a Multiple Companies notice the line's, null when
+    // the line names none. The same link on two lines is one form for both companies; keeping the first line's company
+    // would call it Not eligible by the other one's. Before the page is read a form-kind notice stands alone under its
+    // serial: no ViewNotice means no noteKey, and the key is never stored.
     const formsOf = (n) => {
-        if (!n.lines) return n.kind === "form" ? [`#${n.serial}`] : [];
-        const keys = new Set();
-        for (const line of n.lines)
-            for (const part of cdcSegments(line)) if (part.url && cdcLinkKind(part.text) === "form") keys.add(cdcFormKey(part.text));
-        return [...keys];
+        if (!n.lines) return n.kind === "form" ? [{ key: `#${n.serial}`, company: null }] : [];
+        const multi = /^multiple companies$/i.test(n.subject);
+        const pairs = new Map();
+        for (const line of n.lines) {
+            const parts = cdcSegments(line);
+            parts.forEach((part, i) => {
+                if (!part.url || cdcLinkKind(part.text) !== "form") return;
+                const key = cdcFormKey(part.text);
+                const company = multi ? cdcLineCompany(parts[i - 1]?.text ?? "") || null : n.subject;
+                pairs.set(JSON.stringify([key, company]), { key, company });
+            });
+        }
+        return [...pairs.values()];
     };
     for (const n of notices) n.forms = formsOf(n);
     let filled = new Set(stored.cdcFilled || []);
@@ -197,19 +209,20 @@ cdcSwitch(async (wanted) => {
         for (const n of notices) {
             if (!n.forms.length) continue;
             n.due ??= cdcDeadline(n.text, n.posted);
-            for (const key of n.forms) {
-                const f = forms.get(key) || { notices: [], deadline: null, open: false };
+            for (const { key, company } of n.forms) {
+                const f = forms.get(key) || { notices: [], companies: new Set(), deadline: null, open: false };
                 forms.set(key, f);
-                f.notices.push(n);
+                if (f.notices.at(-1) !== n) f.notices.push(n);
+                f.companies.add(company);
                 if (n.due !== null && (f.deadline === null || n.due > f.deadline)) f.deadline = n.due;
             }
         }
         for (const f of forms.values()) f.open = Date.now() <= (f.deadline ?? f.notices[0].posted + 14 * 864e5);
     }
     mapForms();
-    const isOpenToFill = (key) => forms.get(key).open && !filled.has(key);
+    const isOpenToFill = (key) => forms.get(key).open && !filled.has(key) && !notMine(key);
     // A notice is on the Forms to fill list when it is the newest notice of a form still to fill.
-    const qualifies = (n) => n.forms.some((key) => isOpenToFill(key) && forms.get(key).notices[0] === n);
+    const qualifies = (n) => n.forms.some(({ key }) => isOpenToFill(key) && forms.get(key).notices[0] === n);
 
     let notesTimer = null;
     let notesDirty = false;
@@ -246,6 +259,31 @@ cdcSwitch(async (wanted) => {
         return both.includes("in") ? "in" : both.includes("out") ? "out" : "none";
     };
 
+    // Whose form it is: not mine when its lists leave me out (one that has me wins), or when every company it is for
+    // reads missed, not eligible or closed on the company board. A company's state is the best over the board names
+    // sameCompany matches; one the board does not know, or no company, keeps the form mine. Each name is matched once,
+    // since every keystroke asks for every form and the board has about a hundred names.
+    const ORDER = ["applied", "can", "check", "missed", "not", "closed"];
+    const GONE = { missed: "Missed", not: "Not eligible", closed: "Not applied" };
+    const companyStates = stored.cdcCompanies;
+    const stateMemo = new Map();
+    function stateOf(name) {
+        if (!stateMemo.has(name)) {
+            const at = Object.entries(companyStates).filter(([board]) => sameCompany(name, board)).map(([, state]) => state);
+            stateMemo.set(name, ORDER.find((s) => at.includes(s)));
+        }
+        return stateMemo.get(name);
+    }
+    function notMine(key) {
+        const f = forms.get(key);
+        const lists = f.notices.map(listing);
+        if (lists.includes("in")) return null;
+        if (lists.includes("out")) return "Not in this list";
+        if (!companyStates) return null;
+        const states = [...f.companies].map((name) => name && stateOf(name));
+        return states.every((s) => GONE[s]) ? GONE[ORDER.find((s) => states.includes(s))] : null;
+    }
+
     for (const t of ["placement", "internship"]) $(`type-${t}`).disabled = !notices.some((n) => n.type === t.toUpperCase());
     const categories = [...new Set(notices.map((n) => n.category).filter(Boolean))].sort();
     for (const name of categories) {
@@ -279,7 +317,7 @@ cdcSwitch(async (wanted) => {
 
     // The nearest latest date among the notice's forms still to fill, on every notice of them; red on its last day (IST).
     function dueSpan(n) {
-        const dates = n.forms.filter(isOpenToFill).map((key) => forms.get(key).deadline).filter((d) => d !== null);
+        const dates = n.forms.filter(({ key }) => isOpenToFill(key)).map(({ key }) => forms.get(key).deadline).filter((d) => d !== null);
         if (!dates.length) return null;
         const deadline = Math.min(...dates);
         const d = new Date(deadline + CDC_IST);
@@ -339,8 +377,8 @@ cdcSwitch(async (wanted) => {
         return li;
     }
 
-    // A page's lines: a block per line, one small gap per blank run, its URLs as links opening in a new tab, a Mark filled
-    // after every form link (the same form twice is one state), the search marked inside text and links alike.
+    // A page's lines: a block per line, one small gap per blank run, its URLs as links opening in a new tab, a mark after
+    // every form link (the same form twice is one state), the search marked inside text and links alike.
     function formatText(n) {
         return n.lines.map((line) => {
             if (!line) return span("gap", "");
@@ -356,17 +394,26 @@ cdcSwitch(async (wanted) => {
                 link.rel = "noopener noreferrer";
                 link.append(...cdcMarked(part.text, query));
                 ln.append(link);
-                if (cdcLinkKind(part.text) === "form") {
-                    const key = cdcFormKey(part.text);
-                    const button = document.createElement("button");
-                    button.className = "filled";
-                    button.dataset.form = key;
-                    setFilled(button, filled.has(key));
-                    ln.append(button);
-                }
+                if (cdcLinkKind(part.text) === "form") ln.append(mark(cdcFormKey(part.text)));
             }
             return ln;
         });
+    }
+
+    // Mark filled, or the reason the form is not mine in its place. A form I marked filled keeps its button whatever the
+    // company board says, so the mark can be undone.
+    function mark(key) {
+        const why = !filled.has(key) && notMine(key);
+        if (why) {
+            const label = span("notmine", why);
+            label.dataset.form = key;
+            return label;
+        }
+        const button = document.createElement("button");
+        button.className = "filled";
+        button.dataset.form = key;
+        setFilled(button, filled.has(key));
+        return button;
     }
 
     function setFilled(button, on) {
@@ -399,7 +446,12 @@ cdcSwitch(async (wanted) => {
         }
         for (const li of $("notices").children) {
             const n = byRow(li);
-            for (const button of li.querySelectorAll("button.filled")) setFilled(button, filled.has(button.dataset.form));
+            // A button stays the same node, so focus stays on the one just pressed; a label swaps only when its text changes.
+            for (const el of li.querySelectorAll("[data-form]")) {
+                const next = mark(el.dataset.form);
+                if (el.tagName === "BUTTON" && next.tagName === "BUTTON") setFilled(el, filled.has(el.dataset.form));
+                else if (el.textContent !== next.textContent) el.replaceWith(next);
+            }
             li.querySelector(".due")?.remove();
             const due = dueSpan(n);
             const line = li.querySelector(".line");
@@ -567,18 +619,18 @@ cdcSwitch(async (wanted) => {
             noteTexts[noteKey(n)] = [n.feedHash, lines.join("\n")];
             notesDirty = true;
             notesTimer ??= setTimeout(writeNotes, 2000);
+            // The new lines' marks look their forms up, so the map comes first.
+            const remap = was.length > 0 || n.forms.length > 0;
+            if (remap) mapForms();
             swapText(n);
-            if (was.length || n.forms.length) {
-                mapForms();
-                refreshMarks();
-            }
+            if (remap) refreshMarks();
         }
         const worker = async () => {
             while (!halt && !forgot && wanted() && unread.size) {
                 // Then the open forms: the chip and "Mark filled" are only as good as the pages behind them.
                 const n =
                     filtered.find((x) => unread.has(x)) ??
-                    notices.find((x) => unread.has(x) && x.forms.some((key) => forms.get(key).open)) ??
+                    notices.find((x) => unread.has(x) && x.forms.some(({ key }) => forms.get(key).open)) ??
                     unread.values().next().value;
                 unread.delete(n);
                 await readOne(n);

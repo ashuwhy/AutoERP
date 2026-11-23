@@ -220,6 +220,12 @@ function cdcFormKey(url) {
     return u.hostname.toLowerCase().replace(/^www\./, "") + u.pathname.replace(/\/+$/, "") + (search ? `?${search}` : "");
 }
 
+// The company a Multiple Companies line gives its form: the text before the link, less "1." or "2)" and the hyphen,
+// dash or colon before the URL. Live lines carry word joiners (U+2060) round the number, which \s does not match.
+function cdcLineCompany(before) {
+    return before.replace(/^[\s\u2060]*\d+\s*[.)][\s\u2060]*/, "").replace(/[\s\u2060:\-\u2013\u2014]+$/, "").trim();
+}
+
 // ERP seems to answer only the grid of the CDC page it drew last, and the browser's Back can bring a page
 // out of the cache without ERP drawing it, so feed n comes back empty and so does ERP's own grid. A reload
 // makes ERP draw the page. One per page a minute, per tab: an empty answer right after the reload is real
