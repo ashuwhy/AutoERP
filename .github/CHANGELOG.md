@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## Unreleased
+
+
+### Fixes
+
+* **CDC company board**: ERP's "department not allowed" reads **Not eligible**, with ERP's sentence in the hover, and AutoERP asks again on each visit while the role is open, in case CDC opens it to more departments. Before, it read Check on ERP
+
 ## 2.5.0 (2026-11-16)
 
 

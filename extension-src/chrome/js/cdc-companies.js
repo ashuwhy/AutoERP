@@ -376,12 +376,21 @@ cdcSwitch(async (wanted) => {
         [...$("roles").children].forEach((li) => li.dataset.key && tick(li, byKey.get(li.dataset.key)));
     }, 30000);
 
+    // Best first. The notice board reads each company's best chip to tell which forms are mine.
+    const states = ["applied", "can", "check", "missed", "not", "closed"];
     async function saveVerdicts() {
-        // A "check" sentence may only mean the role has not opened yet, so it is asked again next visit.
-        // A closed role's answer can't change any more, so every one is kept.
-        const pruned = Object.fromEntries(Object.entries(verdicts).filter(([k, v]) => byKey.has(k) && (v.verdict !== "check" || tabOf(byKey.get(k)) === "closed")));
+        // A "check" sentence may only mean the role has not opened yet, and CDC can open a role to more
+        // departments, so both are asked again next visit. A closed role's answer can't change any more,
+        // so every one is kept.
+        const pruned = Object.fromEntries(Object.entries(verdicts).filter(([k, v]) => byKey.has(k) &&
+            (tabOf(byKey.get(k)) === "closed" || (v.verdict !== "check" && !/department not allowed/i.test(v.sentence)))));
         const applied = new Set(roles.filter((r) => r.applied || verdicts[r.key]?.verdict === "applied").map((r) => r.company));
-        await chrome.storage.local.set({ cdcJnf: pruned, cdcApplied: [...applied] });
+        const companies = {};
+        for (const r of roles.filter((r) => r.company)) {
+            const cls = chipOf(r).cls === "checking" ? "check" : chipOf(r).cls;
+            if (!(r.company in companies) || states.indexOf(cls) < states.indexOf(companies[r.company])) companies[r.company] = cls;
+        }
+        await chrome.storage.local.set({ cdcJnf: pruned, cdcApplied: [...applied], cdcCompanies: companies });
     }
 
     // ERP's role page says one of: "Apply with CV1 ...", "Cancel apply View applied Resume", or why
@@ -395,7 +404,7 @@ cdcSwitch(async (wanted) => {
         const sentence = text.slice(0, at).replace(/^CAREER DEVELOPMENT CENTRE \(IIT-KGP\)/, "").trim();
         if (/Cancel apply/.test(sentence)) return { verdict: "applied", sentence };
         if (/Apply with CV/.test(sentence)) return { verdict: "can", sentence };
-        if (/cut off greater than yours/i.test(sentence)) return { verdict: "not", sentence };
+        if (/cut off greater than yours|department not allowed/i.test(sentence)) return { verdict: "not", sentence };
         return sentence ? { verdict: "check", sentence } : null;
     }
 
