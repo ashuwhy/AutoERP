@@ -432,7 +432,7 @@ const CDC_CSS = `
     .link { border: none; background: none; padding: 0; color: var(--muted); font: 500 12px var(--font); cursor: pointer;
             text-decoration: underline; text-decoration-color: #d4d4d8; text-underline-offset: 2px; }
     .link:hover { color: var(--ink); }
-    button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+    button:focus-visible, a:focus-visible, .notmine:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
     :host([data-input="pointer"]) :focus-visible { outline: none; }
     .muted { color: var(--muted); font-size: 12px; }
     .note { border-radius: 6px; }

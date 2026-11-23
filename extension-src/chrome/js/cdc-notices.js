@@ -232,6 +232,9 @@ cdcSwitch(async (wanted) => {
     let notesTimer = null;
     let notesDirty = false;
     let forgot = forgotEarly;
+    // A mark or board change heard during the writes below lands in filled and companyStates, which the first render()
+    // draws; refreshMarks() before that would read the declarations after them.
+    let drawn = false;
     // Forget CDC data in the popup with this tab open: a read in flight would write the verdicts back. Before the
     // first verdict there is no cdcPdf to remove, but cdcLastNotice was set above.
     function forget(changes, area) {
@@ -263,7 +266,7 @@ cdcSwitch(async (wanted) => {
             changed ||= istDay(changes.cdcCompaniesAt.newValue) !== istDay(companiesAt);
             companiesAt = changes.cdcCompaniesAt.newValue;
         }
-        if (changed) refreshMarks();
+        if (changed && drawn) refreshMarks();
     }
     chrome.storage.onChanged.addListener(marksChanged);
     if (roll && stored.cdcPdf && (stored.cdcPdf.roll !== roll || Object.keys(verdicts).length < Object.keys(saved).length))
@@ -427,6 +430,7 @@ cdcSwitch(async (wanted) => {
         if (why) {
             const label = span(why === "Not in this list" ? "notmine out" : "notmine", why);
             label.dataset.form = key;
+            label.tabIndex = -1;
             return label;
         }
         const button = document.createElement("button");
@@ -466,11 +470,16 @@ cdcSwitch(async (wanted) => {
         }
         for (const li of $("notices").children) {
             const n = byRow(li);
-            // A button stays the same node, so focus stays on the one just pressed; a label swaps only when its text changes.
+            // A button stays the same node, so focus stays on the one just pressed; a label swaps only when its text changes,
+            // and the focus goes with it.
             for (const el of li.querySelectorAll("[data-form]")) {
                 const next = mark(el.dataset.form);
                 if (el.tagName === "BUTTON" && next.tagName === "BUTTON") setFilled(el, filled.has(el.dataset.form));
-                else if (el.textContent !== next.textContent) el.replaceWith(next);
+                else if (el.textContent !== next.textContent) {
+                    const focused = shadow.activeElement === el;
+                    el.replaceWith(next);
+                    if (focused) next.focus();
+                }
             }
             li.querySelector(".due")?.remove();
             const due = dueSpan(n);
@@ -754,6 +763,7 @@ cdcSwitch(async (wanted) => {
         refreshMarks();
     });
 
+    drawn = true;
     render();
     showPdfState();
     if (roll) readPdfs();
