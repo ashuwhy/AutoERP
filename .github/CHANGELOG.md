@@ -3,6 +3,10 @@
 ## Unreleased
 
 
+### Features
+
+* **CDC notice board**: **Forms to fill** counts only the forms that are yours. A form whose list leaves you out, or whose companies all read not eligible, missed or closed on the company board, shows **Not in this list**, **Not eligible**, **Missed** or **Not applied** in grey in place of **Mark filled**, and the label changes as soon as the company board or the notice's attachment says otherwise. A notice with several form links has a **Mark filled** after each, and in a Multiple Companies notice each form belongs to the company on its line
+
 ### Fixes
 
 * **CDC company board**: ERP's "department not allowed" reads **Not eligible**, with ERP's sentence in the hover, and AutoERP asks again on each visit while the role is open, in case CDC opens it to more departments. Before, it read Check on ERP

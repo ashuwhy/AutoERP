@@ -61,7 +61,7 @@ Open CDC's company page or notice board in ERP and AutoERP puts its own board ab
 - Notices: the full text of every notice, search, category and Placement/Internship filters, NEW since your last visit, and **My companies** for notices about the companies you applied to.
 - Notice text keeps ERP's formatting and its links, which open in a new tab.
 - Each notice carries a tag for what it asks of you: a form to fill, a list you are in, a deadline.
-- **Forms to fill**: a chip above the list counts the open forms you have not marked **Filled**, and filters to them; the mark stays on this device.
+- **Forms to fill**: a chip above the list counts the open forms that are yours and that you have not marked **Filled**, and filters to them; the mark stays on this device. A form is not yours when its list leaves you out, or when every company it is for reads not eligible, missed or closed on the company board: it keeps a grey label (**Not in this list**, **Not eligible**, **Missed**, **Not applied**) in place of **Mark filled**, and the label follows the company board and the attachments as they change.
 - Calendar: **Add deadlines to calendar** on the company board downloads an .ics with every deadline you can apply to now. Apple Calendar and Outlook remind you 3 h and 30 min before; Google Calendar takes it through **Settings > Import & export** and uses its own reminders.
 
 ![The CDC notice board](brand/store/screenshot-5.png)

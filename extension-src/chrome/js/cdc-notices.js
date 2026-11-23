@@ -25,7 +25,8 @@ cdcSwitch(async (wanted) => {
         .tag.kind { background: #d4d4d8; color: var(--ink); }
         .due { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
         .due.today { color: var(--red-text); }
-        .notmine { margin-left: 4px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+        .notmine { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 6px; background: #e4e4e7; color: #52525b;
+                   font: 600 11px/18px var(--font); white-space: nowrap; vertical-align: 1px; }
         /* Inline-block, not flex: the line then takes the button's baseline from its text, not from the empty circle. */
         button.filled { margin-left: 2px; padding: 0 2px; border: none; background: none; color: var(--muted); font: 500 12px/1 var(--font); cursor: pointer; }
         button.filled::before { content: ""; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 15px; height: 15px;
@@ -102,7 +103,7 @@ cdcSwitch(async (wanted) => {
     const $ = (id) => shadow.getElementById(id);
     const stop = () => {
         chrome.storage.onChanged.removeListener(forget);
-        chrome.storage.onChanged.removeListener(filledChanged);
+        chrome.storage.onChanged.removeListener(marksChanged);
         shadow.host.remove();
     };
     if (!wanted()) return stop;
@@ -201,6 +202,8 @@ cdcSwitch(async (wanted) => {
     };
     for (const n of notices) n.forms = formsOf(n);
     let filled = new Set(stored.cdcFilled || []);
+    let companyStates = stored.cdcCompanies;
+    const stateMemo = new Map();
     let forms = new Map();
     // The feed is newest first, so a form's first notice is its newest. It is open until its latest date, or two weeks
     // after it was first posted when no notice gives one; the last day counts in full.
@@ -237,15 +240,26 @@ cdcSwitch(async (wanted) => {
         for (const k in noteTexts) delete noteTexts[k];
     }
     chrome.storage.onChanged.addListener(forget);
-    // Another tab, or Forget in the popup (no newValue: none filled). Its own writes echo back as the same set.
-    function filledChanged(changes, area) {
-        if (area !== "local" || !("cdcFilled" in changes)) return;
-        const next = changes.cdcFilled.newValue || [];
-        if (next.length === filled.size && next.every((k) => filled.has(k))) return;
-        filled = new Set(next);
-        refreshMarks();
+    // Another tab's mark, the company board, or Forget in the popup (no newValue: none filled, no board). This tab's own
+    // marks echo back as the same set, and the company board writes its map on every visit.
+    function marksChanged(changes, area) {
+        if (area !== "local") return;
+        let changed = false;
+        if ("cdcFilled" in changes) {
+            const next = changes.cdcFilled.newValue || [];
+            if (next.length !== filled.size || !next.every((k) => filled.has(k))) {
+                filled = new Set(next);
+                changed = true;
+            }
+        }
+        if ("cdcCompanies" in changes && JSON.stringify(changes.cdcCompanies.newValue) !== JSON.stringify(companyStates)) {
+            companyStates = changes.cdcCompanies.newValue;
+            stateMemo.clear();
+            changed = true;
+        }
+        if (changed) refreshMarks();
     }
-    chrome.storage.onChanged.addListener(filledChanged);
+    chrome.storage.onChanged.addListener(marksChanged);
     if (roll && stored.cdcPdf && (stored.cdcPdf.roll !== roll || Object.keys(verdicts).length < Object.keys(saved).length))
         await chrome.storage.local.set({ cdcPdf: { roll, verdicts } });
     if (stored.cdcNotes && !forgot && Object.keys(noteTexts).length < Object.keys(stored.cdcNotes).length)
@@ -261,12 +275,10 @@ cdcSwitch(async (wanted) => {
 
     // Whose form it is: not mine when its lists leave me out (one that has me wins), or when every company it is for
     // reads missed, not eligible or closed on the company board. A company's state is the best over the board names
-    // sameCompany matches; one the board does not know, or no company, keeps the form mine. Each name is matched once,
-    // since every keystroke asks for every form and the board has about a hundred names.
+    // sameCompany matches; one the board does not know, or no company, keeps the form mine. Each name is matched once
+    // until the board changes, since every keystroke asks for every form and the board has about a hundred names.
     const ORDER = ["applied", "can", "check", "missed", "not", "closed"];
     const GONE = { missed: "Missed", not: "Not eligible", closed: "Not applied" };
-    const companyStates = stored.cdcCompanies;
-    const stateMemo = new Map();
     function stateOf(name) {
         if (!stateMemo.has(name)) {
             const at = Object.entries(companyStates).filter(([board]) => sameCompany(name, board)).map(([, state]) => state);
@@ -427,7 +439,7 @@ cdcSwitch(async (wanted) => {
         $("tofill").disabled = !count && !toFill;
     }
 
-    // A mark, another tab or a page landing: every shown row follows in place. With the chip on, rows that stopped
+    // A mark, another tab, the company board, or a page or PDF landing: every shown row follows in place. With the chip on, rows that stopped
     // qualifying are taken out where they stand; one that started to, or an emptied list, goes through render().
     function refreshMarks() {
         showFormState();
@@ -540,6 +552,7 @@ cdcSwitch(async (wanted) => {
             const line = [...$("notices").children].find((el) => el.dataset.serial === String(n.serial))?.querySelector(".line");
             line?.querySelector(".pdf-in, .pdf-out")?.remove();
             if (listed && line) line.append(listed);
+            if (n.forms.length) refreshMarks();
             showPdfState();
         }
         const worker = async () => {
