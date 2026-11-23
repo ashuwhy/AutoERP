@@ -177,15 +177,17 @@ cdcSwitch(async (wanted) => {
         noteTexts[noteKey(n)] = entry;
         if (entry[0] === n.feedHash) n.lines = entry[1] ? entry[1].split("\n") : [];
     }
-    // A form is its link's key (cdcFormKey), so a reposted notice and its follow-up are one form. Before the page is read
-    // a form-kind notice stands alone under its serial: no ViewNotice means no noteKey, and the key is never stored.
-    const formOf = (n) => {
-        if (!n.lines) return n.kind === "form" ? `#${n.serial}` : null;
+    // A form is its link's key (cdcFormKey), so a reposted notice and its follow-up are one form; a notice holds each of
+    // its forms once, in page order. Before the page is read a form-kind notice stands alone under its serial: no
+    // ViewNotice means no noteKey, and the key is never stored.
+    const formsOf = (n) => {
+        if (!n.lines) return n.kind === "form" ? [`#${n.serial}`] : [];
+        const keys = new Set();
         for (const line of n.lines)
-            for (const part of cdcSegments(line)) if (part.url && cdcLinkKind(part.text) === "form") return cdcFormKey(part.text);
-        return null;
+            for (const part of cdcSegments(line)) if (part.url && cdcLinkKind(part.text) === "form") keys.add(cdcFormKey(part.text));
+        return [...keys];
     };
-    for (const n of notices) n.form = formOf(n);
+    for (const n of notices) n.forms = formsOf(n);
     let filled = new Set(stored.cdcFilled || []);
     let forms = new Map();
     // The feed is newest first, so a form's first notice is its newest. It is open until its latest date, or two weeks
@@ -193,17 +195,21 @@ cdcSwitch(async (wanted) => {
     function mapForms() {
         forms = new Map();
         for (const n of notices) {
-            if (!n.form) continue;
+            if (!n.forms.length) continue;
             n.due ??= cdcDeadline(n.text, n.posted);
-            const f = forms.get(n.form) || { notices: [], deadline: null, open: false };
-            forms.set(n.form, f);
-            f.notices.push(n);
-            if (n.due !== null && (f.deadline === null || n.due > f.deadline)) f.deadline = n.due;
+            for (const key of n.forms) {
+                const f = forms.get(key) || { notices: [], deadline: null, open: false };
+                forms.set(key, f);
+                f.notices.push(n);
+                if (n.due !== null && (f.deadline === null || n.due > f.deadline)) f.deadline = n.due;
+            }
         }
         for (const f of forms.values()) f.open = Date.now() <= (f.deadline ?? f.notices[0].posted + 14 * 864e5);
     }
     mapForms();
-    const qualifies = (n) => Boolean(n.form) && forms.get(n.form).open && !filled.has(n.form) && forms.get(n.form).notices[0] === n;
+    const isOpenToFill = (key) => forms.get(key).open && !filled.has(key);
+    // A notice is on the Forms to fill list when it is the newest notice of a form still to fill.
+    const qualifies = (n) => n.forms.some((key) => isOpenToFill(key) && forms.get(key).notices[0] === n);
 
     let notesTimer = null;
     let notesDirty = false;
@@ -271,13 +277,14 @@ cdcSwitch(async (wanted) => {
         return el;
     };
 
-    // The form's latest date, on every notice of an open form not yet filled; red on its last day (IST).
+    // The nearest latest date among the notice's forms still to fill, on every notice of them; red on its last day (IST).
     function dueSpan(n) {
-        const f = n.form && forms.get(n.form);
-        if (!f || f.deadline === null || !f.open || filled.has(n.form)) return null;
-        const d = new Date(f.deadline + CDC_IST);
+        const dates = n.forms.filter(isOpenToFill).map((key) => forms.get(key).deadline).filter((d) => d !== null);
+        if (!dates.length) return null;
+        const deadline = Math.min(...dates);
+        const d = new Date(deadline + CDC_IST);
         const el = span("due", `by ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`);
-        if (Math.floor((f.deadline + CDC_IST) / 864e5) === Math.floor((Date.now() + CDC_IST) / 864e5)) el.classList.add("today");
+        if (Math.floor((deadline + CDC_IST) / 864e5) === Math.floor((Date.now() + CDC_IST) / 864e5)) el.classList.add("today");
         return el;
     }
 
@@ -332,10 +339,9 @@ cdcSwitch(async (wanted) => {
         return li;
     }
 
-    // A page's lines: a block per line, one small gap per blank run, its URLs as links opening in a new tab, the search
-    // marked inside text and links alike.
+    // A page's lines: a block per line, one small gap per blank run, its URLs as links opening in a new tab, a Mark filled
+    // after every form link (the same form twice is one state), the search marked inside text and links alike.
     function formatText(n) {
-        let marked = false;
         return n.lines.map((line) => {
             if (!line) return span("gap", "");
             const ln = span("ln", "");
@@ -350,8 +356,7 @@ cdcSwitch(async (wanted) => {
                 link.rel = "noopener noreferrer";
                 link.append(...cdcMarked(part.text, query));
                 ln.append(link);
-                if (!marked && cdcLinkKind(part.text) === "form") {
-                    marked = true;
+                if (cdcLinkKind(part.text) === "form") {
                     const key = cdcFormKey(part.text);
                     const button = document.createElement("button");
                     button.className = "filled";
@@ -370,7 +375,7 @@ cdcSwitch(async (wanted) => {
     }
 
     function showFormState() {
-        const count = notices.filter(qualifies).length;
+        const count = [...forms.keys()].filter(isOpenToFill).length;
         $("tofill").lastChild.textContent = count;
         $("tofill").disabled = !count && !toFill;
     }
@@ -394,8 +399,7 @@ cdcSwitch(async (wanted) => {
         }
         for (const li of $("notices").children) {
             const n = byRow(li);
-            const button = li.querySelector("button.filled");
-            if (button) setFilled(button, filled.has(button.dataset.form));
+            for (const button of li.querySelectorAll("button.filled")) setFilled(button, filled.has(button.dataset.form));
             li.querySelector(".due")?.remove();
             const due = dueSpan(n);
             const line = li.querySelector(".line");
@@ -557,14 +561,14 @@ cdcSwitch(async (wanted) => {
             }
             odd = 0;
             if (forgot || !wanted()) return;
-            const was = n.form;
+            const was = n.forms;
             n.lines = lines;
-            n.form = formOf(n);
+            n.forms = formsOf(n);
             noteTexts[noteKey(n)] = [n.feedHash, lines.join("\n")];
             notesDirty = true;
             notesTimer ??= setTimeout(writeNotes, 2000);
             swapText(n);
-            if (was || n.form) {
+            if (was.length || n.forms.length) {
                 mapForms();
                 refreshMarks();
             }
@@ -574,7 +578,7 @@ cdcSwitch(async (wanted) => {
                 // Then the open forms: the chip and "Mark filled" are only as good as the pages behind them.
                 const n =
                     filtered.find((x) => unread.has(x)) ??
-                    notices.find((x) => unread.has(x) && x.form && forms.get(x.form).open) ??
+                    notices.find((x) => unread.has(x) && x.forms.some((key) => forms.get(key).open)) ??
                     unread.values().next().value;
                 unread.delete(n);
                 await readOne(n);
