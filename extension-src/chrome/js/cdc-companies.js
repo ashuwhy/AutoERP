@@ -17,6 +17,7 @@ cdcSwitch(async (wanted) => {
         .name span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .role { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .role .why { margin-left: 8px; color: var(--red-text); }
+        .files { margin-top: 2px; color: var(--muted); font-size: 12px; }
         li .ctc { font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
         li .ctc.free { color: var(--muted); font: 500 11px/1.3 var(--font); }
         li .left { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -104,6 +105,8 @@ cdcSwitch(async (wanted) => {
         say("Signed out of ERP.");
         return stop;
     }
+    // ERP's three file columns hold an empty link until a file is up, then one that reads Download.
+    const fileCells = [[7, "TPJNFDescription", "JD"], [1, "TPComDescription", "Company file"], [2, "TPPPTDescription", "PPT"]];
     const roles = cdcRows(feed.text).map((cells) => {
         const args = cdcCall(cells[3], "TPJNFView");
         const currency = (cells[6]?.textContent || "").trim();
@@ -119,6 +122,8 @@ cdcSwitch(async (wanted) => {
             applied: cells[8]?.textContent.trim() === "Y",
             start: istTime(cells[9]?.textContent || ""),
             end: istTime(cells[10]?.textContent || ""),
+            files: fileCells.map(([at, call, text]) => ({ call, text, args: cells[at]?.querySelector("a")?.textContent.trim() === "Download" && cdcCall(cells[at], call) }))
+                .filter((file) => file.args),
         };
     });
     if (cdcNoRows(37, roles.length, say)) return stop;
@@ -272,6 +277,19 @@ cdcSwitch(async (wanted) => {
         role.title = chip.why ? `${r.role} - ${chip.why}` : r.role;
         if (chip.why) role.append(span("why", chip.why));
         who.append(name, role);
+        if (r.files.length) {
+            const files = document.createElement("p");
+            files.className = "files";
+            r.files.forEach((file, i) => {
+                const link = document.createElement("button");
+                link.className = "link";
+                link.textContent = file.text;
+                // ERP's own download function, the same file dialog its grid's Download opens.
+                link.setAttribute("onclick", cdcCallAttr(file.call, file.args));
+                files.append(...(i ? [" \u00b7 "] : []), link);
+            });
+            who.append(files);
+        }
         const chipEl = span(`stat chip ${chip.cls}`, chip.text);
         if (chip.title) chipEl.title = chip.title;
         let open = span("act", "");
