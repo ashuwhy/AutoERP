@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2.6.1 (2026-11-24)
+
+
+### Features
+
+* **CDC company board**: under each role, **JD**, **Company file** and **PPT** open ERP's own files for it, the same download ERP's grid offers. Only the files ERP has up show; a role with none looks as before. Before, the board hid these columns, and the only way to them was switching the board off
+
 ## 2.6.0 (2026-11-23)
 
 
