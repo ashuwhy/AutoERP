@@ -104,16 +104,43 @@
         await chrome.storage.local.set({ login: now });
     }
 
-    async function otpRefused(question, answer, message) {
-        const { login: now } = await chrome.storage.local.get("login");
-        if (/security question/i.test(message)) {
-            if (now?.answers?.[question] === answer) {
-                delete now.answers[question];
-                await chrome.storage.local.set({ login: now });
+    // ERP keeps one security question per session, the last one any of your login tabs asked for, so
+    // Send OTP in a tab opened earlier sends a right answer to a question ERP has moved past. A refused
+    // answer is never deleted: keepAnswer replaces it once ERP takes another. The first refusal asks
+    // ERP for the session's question again; the same answer refused on the same question is wrong.
+    const refusals = new Map();
+    const pair = (question, answer) => JSON.stringify([question, answer]);
+
+    async function answerRefused(question, answer) {
+        refusals.set(pair(question, answer), (refusals.get(pair(question, answer)) || 0) + 1);
+        const box = field("answer");
+        if (refusals.get(pair(question, answer)) === 1) {
+            say("ERP turned that answer down. Asking it for this login's question again...");
+            let asked = false;
+            // $.html() rewrites the label even when the same question comes back.
+            const watch = new MutationObserver(() => (asked = true));
+            watch.observe(field("question"), { childList: true });
+            fire(field("user_id"), ["blur"]);
+            const fresh = await waitFor(() => asked && !box.readOnly && questionKey(field("question").textContent), 10000);
+            watch.disconnect();
+            const { login: now } = await chrome.storage.local.get("login");
+            const saved = fresh && now?.answers?.[fresh];
+            if (saved && (refusals.get(pair(fresh, saved)) || 0) < 2) {
+                box.value = saved;
+                fire(box, ["input", "change"]);
+                return say("ERP turned that answer down, as it does when another ERP login tab has asked for a newer question. AutoERP asked again and filled the answer to this one. Press Send OTP.");
             }
-            answerByHand();
-            return say("ERP says that answer is wrong. Type the right one and press Send OTP; AutoERP keeps the one that works.", "err");
         }
+        answerByHand();
+        box.value = "";
+        fire(box, ["input", "change"]);
+        box.focus();
+        say("ERP turned that answer down. Type the answer to the question shown and press Send OTP; AutoERP keeps the one that works.", "err");
+    }
+
+    async function otpRefused(question, answer, message) {
+        if (/security question/i.test(message)) return answerRefused(question, answer);
+        const { login: now } = await chrome.storage.local.get("login");
         if (/password/i.test(message) && now?.password === field("password").value) {
             delete now.password;
             await chrome.storage.local.set({ login: now });
@@ -127,12 +154,13 @@
         const title = await waitFor(() => document.querySelector(".swal2-title")?.textContent.trim(), 20000);
         if (!title) return say("ERP did not answer the OTP request. Press Send OTP to try again.", "err");
         const message = document.querySelector(".swal2-html-container")?.textContent.trim() || "";
+        // Closed whatever it says, since the card repeats it: an alert left open hands the next Send OTP
+        // this one's title. SweetAlert gives focus back to Get OTP as it closes, so focus moves after that.
+        document.querySelector(".swal2-confirm")?.click();
+        await waitFor(() => !document.querySelector(".swal2-container"));
         // The page's own test for a refusal, in getEmailOTP().
         if (`${title} ${message}`.toLowerCase().includes("unable to send otp")) return otpRefused(question, answer, message);
         await keepAnswer(question, answer);
-        document.querySelector(".swal2-confirm")?.click();
-        // SweetAlert gives focus back to Get OTP as it closes, so the OTP box takes it after that.
-        await waitFor(() => !document.querySelector(".swal2-container"));
         field("email_otp1").focus();
         say("OTP sent to your email. Type it in the OTP box and press Enter.", "ok");
         return true;
