@@ -7,7 +7,7 @@ cdcSwitch(async (wanted) => {
     if (!wanted() || !anchor || document.getElementById("autoerp-cdc")) return;
 
     const CSS = `
-        .cols, ol > li { grid-template-columns: minmax(0, 1fr) 90px 104px 104px 88px; grid-template-areas: "who ctc left stat act"; }
+        .cols, ol > li { grid-template-columns: minmax(0, 1fr) 90px 112px 104px 88px; grid-template-areas: "who ctc left stat act"; }
         .who { grid-area: who; min-width: 0; }
         .ctc { grid-area: ctc; text-align: right; }
         .left { grid-area: left; text-align: right; }
@@ -17,7 +17,10 @@ cdcSwitch(async (wanted) => {
         .name span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .role { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .role .why { margin-left: 8px; color: var(--red-text); }
-        .files { margin-top: 2px; color: var(--muted); font-size: 12px; }
+        .files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .files button { height: 22px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--muted); font: 500 11px var(--font); cursor: pointer; }
+        .files button:hover { border-color: #a1a1aa; color: var(--ink); }
+        .files .jd { border-color: #a1a1aa; color: var(--ink); }
         li .ctc { font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
         li .ctc.free { color: var(--muted); font: 500 11px/1.3 var(--font); }
         li .left { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -42,8 +45,8 @@ cdcSwitch(async (wanted) => {
             <div class="top">
                 <div class="bar">
                     <div class="seg" role="tablist">
+                        <button id="tab-all">All<span class="n">0</span></button>
                         <button id="tab-open" class="picked">Open now<span class="n">0</span></button>
-                        <button id="tab-soon">Opens soon<span class="n">0</span></button>
                         <button id="tab-closed">Closed<span class="n">0</span></button>
                     </div>
                     <input type="search" id="search" placeholder="Search company or role" aria-label="Search company or role">
@@ -173,7 +176,7 @@ cdcSwitch(async (wanted) => {
     }
 
     // The calendar holds every open role that reads Can apply, whatever tab, search or hide shows.
-    // An Opens soon role can carry a kept Can apply verdict, but ERP takes no application before the start.
+    // An upcoming role can carry a kept Can apply verdict, but ERP takes no application before the start.
     const due = () => roles.filter((r) => tabOf(r) === "open" && chipOf(r).cls === "can" && !isNaN(r.end));
     function syncIcs() {
         // Closed roles being asked change nothing in the file.
@@ -250,8 +253,11 @@ cdcSwitch(async (wanted) => {
     function tick(li, r) {
         const left = li.querySelector(".left");
         const t = tabOf(r);
-        if (t === "soon") left.textContent = duration(r.start - now());
-        else if (t === "closed") left.textContent = new Date(r.end).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+        if (t === "soon") left.textContent = `opens in ${duration(r.start - now())}`;
+        else if (t === "closed") {
+            const day = new Date(r.end).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+            left.textContent = tab === "all" ? `closed ${day}` : day;
+        }
         else left.textContent = isNaN(r.end) ? "no deadline" : duration(r.end - now());
         left.classList.toggle("soon", t === "open" && r.end - now() < 6 * 3600000);
     }
@@ -280,14 +286,14 @@ cdcSwitch(async (wanted) => {
         if (r.files.length) {
             const files = document.createElement("p");
             files.className = "files";
-            r.files.forEach((file, i) => {
-                const link = document.createElement("button");
-                link.className = "link";
-                link.textContent = file.text;
+            for (const file of r.files) {
+                const pill = document.createElement("button");
+                pill.className = file.call === "TPJNFDescription" ? "file jd" : "file";
+                pill.textContent = file.text;
                 // ERP's own download function, the same file dialog its grid's Download opens.
-                link.setAttribute("onclick", cdcCallAttr(file.call, file.args));
-                files.append(...(i ? [" \u00b7 "] : []), link);
-            });
+                pill.setAttribute("onclick", cdcCallAttr(file.call, file.args));
+                files.append(pill);
+            }
             who.append(files);
         }
         const chipEl = span(`stat chip ${chip.cls}`, chip.text);
@@ -317,38 +323,49 @@ cdcSwitch(async (wanted) => {
         ctc: (a, b) => a.pay[0] - b.pay[0] || a.pay[1].localeCompare(b.pay[1]) || b.pay[2] - a.pay[2],
         az: (a, b) => a.company.localeCompare(b.company, "en"),
     };
-    // Open now and Opens soon put what you can act on first. Closed has no groups: nothing there takes an application.
+    // Open and upcoming roles put what you can act on first. Closed ones have no groups: nothing there takes an application.
     const groupOf = { can: 0, check: 1, checking: 1, applied: 2, not: 3 };
+    // All lists open roles, then upcoming, then closed, whatever the sort.
+    const rank = { open: 0, soon: 1, closed: 2 };
 
     function sorted(list) {
-        const group = new Map(list.map((r) => [r, tab === "closed" ? 0 : groupOf[chipOf(r).cls]]));
+        const place = new Map(list.map((r) => {
+            const t = tabOf(r);
+            return [r, { t, rank: rank[t], group: t === "closed" ? 0 : groupOf[chipOf(r).cls] }];
+        }));
         const by = sorts[$("sort").value];
-        return list.sort((a, b) => group.get(a) - group.get(b) || by?.(a, b) || order[tab](a, b));
+        return list.sort((a, b) => {
+            const [x, y] = [place.get(a), place.get(b)];
+            return x.rank - y.rank || x.group - y.group || by?.(a, b) || order[x.t](a, b);
+        });
     }
 
     const query = () => $("search").value.trim().toLowerCase();
-    const tabName = { open: "Open now", soon: "Opens soon", closed: "Closed" };
+    const tabName = { all: "All", open: "Open now", closed: "Closed" };
 
     function render() {
         show();
         // Tab counts follow the search, so a match in another tab still shows up.
         const q = query();
         const found = roles.filter((r) => !q || `${r.company} ${r.role}`.toLowerCase().includes(q));
-        const counts = {};
-        for (const t of ["open", "soon", "closed"]) {
-            counts[t] = found.filter((r) => tabOf(r) === t).length;
+        const counts = { all: found.length, open: 0, soon: 0, closed: 0 };
+        for (const r of found) counts[tabOf(r)]++;
+        for (const t of ["all", "open", "closed"]) {
             $(`tab-${t}`).lastChild.textContent = counts[t];
             $(`tab-${t}`).classList.toggle("picked", t === tab);
         }
-        $("col-left").textContent = { open: "Closes in", soon: "Opens in", closed: "Closed" }[tab];
-        $("sort").options[0].textContent = { open: "Closing soonest", soon: "Opening soonest", closed: "Closed most recently" }[tab];
-        // A search that hits more in another tab names the one with the most, once.
-        const most = ["open", "soon", "closed"].reduce((a, b) => (counts[b] > counts[a] ? b : a));
-        const elsewhere = q && counts[most] > counts[tab] ? most : "";
+        $("col-left").textContent = { all: "Closes in", open: "Closes in", closed: "Closed" }[tab];
+        $("sort").options[0].textContent = { all: "Closing soonest", open: "Closing soonest", closed: "Closed most recently" }[tab];
+        // A search that hits more elsewhere names where, once; never from All, which already holds every hit.
+        // Upcoming roles show only in All, so a hit among them names All.
+        const other = tab === "open" ? "closed" : "open";
+        const to = !q || tab === "all" ? "" : counts.soon ? "all" : other;
+        const extras = to === "all" ? counts.all - counts[tab] : counts[other];
+        const elsewhere = to && extras > counts[tab] ? to : "";
         $("elsewhere").hidden = $("elsewhere").parentElement.hidden = !elsewhere;
         $("elsewhere").dataset.tab = elsewhere;
-        $("elsewhere").textContent = elsewhere ? `${counts[elsewhere]} more in ${tabName[elsewhere]}, show` : "";
-        const matching = sorted(found.filter((r) => tabOf(r) === tab));
+        $("elsewhere").textContent = elsewhere ? `${extras} more in ${tabName[elsewhere]}, show` : "";
+        const matching = sorted(tab === "all" ? found : found.filter((r) => tabOf(r) === tab));
         hiddenCount = hide ? matching.filter((r) => chipOf(r).cls === "not").length : 0;
         const shown = hide ? matching.filter((r) => chipOf(r).cls !== "not") : matching;
         countHidden();
@@ -356,7 +373,7 @@ cdcSwitch(async (wanted) => {
         $("hide").setAttribute("aria-pressed", String(hide));
         $("roles").replaceChildren(...shown.map(row));
         $("none").hidden = shown.length > 0;
-        $("none").textContent = { open: "No roles open right now", soon: "No roles opening soon", closed: "No closed roles yet" }[tab];
+        $("none").textContent = { all: "No roles found", open: "No roles open right now", closed: "No closed roles yet" }[tab];
         syncIcs();
     }
 
@@ -463,8 +480,8 @@ cdcSwitch(async (wanted) => {
         return queue;
     }
 
-    // Closed roles not applied to and never answered, newest first, asked once when the Closed tab
-    // first opens; Check eligibility again leaves them alone.
+    // Closed roles not applied to and never answered, newest first, asked once when All or Closed first
+    // opens, since both show closed rows; Check eligibility again leaves them alone.
     let closedAsked = false;
     function queueClosed() {
         closedAsked = true;
@@ -500,10 +517,10 @@ cdcSwitch(async (wanted) => {
         if (!signedOut) await saveVerdicts();
     }
 
-    for (const t of ["open", "soon", "closed"])
+    for (const t of ["all", "open", "closed"])
         $(`tab-${t}`).addEventListener("click", () => {
             tab = t;
-            const queue = t === "closed" && !closedAsked ? queueClosed() : [];
+            const queue = t !== "open" && !closedAsked ? queueClosed() : [];
             render();
             if (queue.length) askAll(queue);
         });
