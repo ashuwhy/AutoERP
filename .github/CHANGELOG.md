@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.6.2 (2026-11-26)
+
+
+### Features
+
+* **CDC company board**: the tabs read **All**, **Open now** and **Closed**. **All** lists every role: open ones first, then the ones not open yet with "opens in" and the time left, then closed ones with the day they closed. Roles that used to sit in **Opens soon** show under All. **JD**, **Company file** and **PPT** under each role are small buttons now, not a line of links
+
+### Fixes
+
+* **Login**: a security answer ERP turns down is kept. ERP holds one question per session, the last one any of your login tabs asked for, so Send OTP in a tab opened earlier sent a right answer to a question ERP had moved past, and AutoERP deleted that answer. Now AutoERP asks ERP for the question again and fills your saved answer to it. Only the same answer turned down twice on the same question asks you to type it
+
 ## 2.6.1 (2026-11-24)
 
 
