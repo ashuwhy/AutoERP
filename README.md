@@ -57,7 +57,7 @@ Once ERP has every form, the fold shows **Download admit card** instead.
 
 Open CDC's company page or notice board in ERP and AutoERP puts its own board above ERP's grid, which stays where it was.
 
-- Companies: **Open now**, **Opens soon** and **Closed** tabs, open roles by deadline with a countdown, the CTC as "18.15 L", and ERP's own verdict for each role: Applied, Can apply, Not eligible (with ERP's reason) or Check on ERP. Roles ERP says you aren't eligible for are hidden behind a count you can click. Roles added since your last visit say NEW.
+- Companies: **All**, **Open now** and **Closed** tabs, open roles by deadline with a countdown, roles not open yet under **All** with the time until they open, the CTC as "18.15 L", and ERP's own verdict for each role: Applied, Can apply, Not eligible (with ERP's reason) or Check on ERP. Roles ERP says you aren't eligible for are hidden behind a count you can click. Roles added since your last visit say NEW.
 - Notices: the full text of every notice, search, category and Placement/Internship filters, NEW since your last visit, and **My companies** for notices about the companies you applied to.
 - Notice text keeps ERP's formatting and its links, which open in a new tab.
 - Each notice carries a tag for what it asks of you: a form to fill, a list you are in, a deadline.
