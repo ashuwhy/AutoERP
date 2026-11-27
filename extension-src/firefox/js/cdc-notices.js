@@ -42,6 +42,9 @@ cdcSwitch(async (wanted) => {
         .text .gap { display: block; height: 6px; }
         .text a { color: #2563eb; text-decoration-color: #93c5fd; text-underline-offset: 2px; }
         .text a:hover { color: #1d4ed8; text-decoration-color: currentColor; }
+        #back { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--line);
+                border-radius: 6px; background: var(--paper); color: var(--muted); }
+        #back:hover { border-color: #d4d4d8; color: var(--ink); }
         #cats button { height: 26px; padding: 0 9px; border-radius: 6px; font-size: 12px; }
         /* Red only for urgency: under-6h deadlines, NEW and Urgent notices. */
         #cats button[data-cat="Urgent"]:not(.picked) { border-color: #fecdca; background: #fef3f2; color: var(--red-text); }
@@ -59,6 +62,8 @@ cdcSwitch(async (wanted) => {
         <section class="card" aria-label="AutoERP notice board">
             <div class="top">
                 <div class="bar">
+                    <a id="back" href="TPStudent.jsp" aria-label="Back to company board" title="Back to company board"><svg width="16" height="16" viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8H3M7.5 3.5 3 8l4.5 4.5"/></svg></a>
                     <input type="search" id="search" placeholder="Search notices" aria-label="Search notices">
                     <div class="seg" role="tablist">
                         <button id="type-all" class="picked">All<span class="n">0</span></button>
@@ -76,7 +81,6 @@ cdcSwitch(async (wanted) => {
                 </div>
                 <div class="head">
                     <small id="count"></small>
-                    <a class="link" id="back" href="TPStudent.jsp">Back to company board</a>
                 </div>
             </div>
             <div class="bar chips" id="cats"><button data-cat="" class="picked">All</button></div>
