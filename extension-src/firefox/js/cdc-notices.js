@@ -210,6 +210,7 @@ cdcSwitch(async (wanted) => {
     let companiesAt = stored.cdcCompaniesAt;
     const istDay = (ms) => Math.floor((ms + 198e5) / 864e5);
     const stateMemo = new Map();
+    const firstMemo = new Map();
     let forms = new Map();
     // The feed is newest first, so a form's first notice is its newest. It is open until its latest date, or two weeks
     // after it was first posted when no notice gives one; the last day counts in full.
@@ -288,26 +289,68 @@ cdcSwitch(async (wanted) => {
 
     // Whose form it is: not mine when every notice carrying it has a list that leaves me out, or when every company it is
     // for reads missed, not eligible or closed on the company board. A list that has me keeps it mine whatever the board
-    // says, and so does a form posted on or after the IST day I last opened the company page, which may not know its
-    // company yet. A company's state is the best over the board names sameCompany matches; one the board does not know,
-    // or no company, keeps the form mine. Each name is matched once until the board changes, since every keystroke asks
-    // for every form and the board has about a hundred names.
+    // says. A company's state is the best over the board names sameCompany matches, and a form whose newest notice is
+    // posted on or after the IST day I last opened the company page keeps it mine, as that visit may not have had the
+    // role yet. The board lists every company open to me, so a company it does not know reads not eligible once I opened
+    // it on a later day than that company's first notice: Havells' Date extension had a form I never saw on the board.
+    // It stays mine when a board name shares a word with it that few companies use, or runs two of its words together
+    // ("QICAP" for "Qi Cap"), a spelling sameCompany misses, and when the name is CDC's own ("CDC Placement Schedule").
+    // No company keeps the form mine. Each name is matched once until the board changes, since every keystroke asks for
+    // every form and the board has about a hundred names.
     const ORDER = ["applied", "can", "check", "missed", "not", "closed"];
     const GONE = { missed: "Missed", not: "Not eligible", closed: "Not applied" };
+    const COMMON = new Set(
+        ("india research capital and consulting group bank technologies technology securities ai labs solutions company analytics " +
+            "aerospace services japan first investments investment corporation one of the llp co global digital systems software " +
+            "financial finance markets management advisors partners international tech").split(" "),
+    );
+    const CDC_OWN = new Set(["cdc", "iit", "kharagpur", "form", "forms", "workshop", "contact", "schedule"]);
+    const rareMemo = new Map();
+    function rareWords(name) {
+        if (!rareMemo.has(name)) {
+            const all = companyTokens(name).split(" ").filter(Boolean);
+            const rare = all.filter((w) => !COMMON.has(w));
+            for (let i = 1; i < all.length; i++) if (!COMMON.has(all[i - 1]) && !COMMON.has(all[i])) rare.push(all[i - 1] + all[i]);
+            rareMemo.set(name, rare);
+        }
+        return rareMemo.get(name);
+    }
     function stateOf(name) {
         if (!stateMemo.has(name)) {
-            const at = Object.entries(companyStates).filter(([board]) => sameCompany(name, board)).map(([, state]) => state);
-            stateMemo.set(name, ORDER.find((s) => at.includes(s)));
+            const boards = Object.keys(companyStates);
+            const at = boards.filter((board) => sameCompany(name, board)).map((board) => companyStates[board]);
+            const own = rareWords(name);
+            const known = at.length > 0 || boards.some((board) => rareWords(board).some((w) => own.includes(w))) ||
+                companyTokens(name).split(" ").some((w) => CDC_OWN.has(w));
+            stateMemo.set(name, known ? ORDER.find((s) => at.includes(s)) : "unlisted");
         }
         return stateMemo.get(name);
+    }
+    // The IST day a company was first named, in a notice's subject or on a Multiple Companies line with a form. Kept
+    // until a page read changes a line that matches the name.
+    function firstDay(name) {
+        if (!firstMemo.has(name)) {
+            const posted = notices
+                .filter((n) => sameCompany(n.subject, name) || n.forms.some(({ company }) => company && sameCompany(company, name)))
+                .map((n) => n.posted)
+                .filter(Number.isFinite);
+            firstMemo.set(name, istDay(Math.min(...posted)));
+        }
+        return firstMemo.get(name);
     }
     function notMine(key) {
         const f = forms.get(key);
         const lists = f.notices.map(listing);
         if (lists.includes("in")) return null;
         if (lists.every((l) => l === "out")) return "Not in this list";
-        if (!companyStates || istDay(f.notices[0].posted) >= istDay(companiesAt)) return null;
-        const states = [...f.companies].map((name) => name && stateOf(name));
+        if (!companyStates) return null;
+        const day = istDay(companiesAt);
+        const fresh = istDay(f.notices[0].posted) >= day;
+        const states = [...f.companies].map((name) => {
+            const state = name && stateOf(name);
+            if (state === "unlisted") return day > firstDay(name) ? "not" : null;
+            return fresh ? null : state;
+        });
         return states.every((s) => GONE[s]) ? GONE[ORDER.find((s) => states.includes(s))] : null;
     }
 
@@ -653,6 +696,10 @@ cdcSwitch(async (wanted) => {
             noteTexts[noteKey(n)] = [n.feedHash, lines.join("\n")];
             notesDirty = true;
             notesTimer ??= setTimeout(writeNotes, 2000);
+            // Only a Multiple Companies line names a company apart from its notice's subject, so only the names matching one,
+            // before or after the read, may have a new first day.
+            const lined = [...was, ...n.forms].map(({ company }) => company).filter((c) => c && c !== n.subject);
+            for (const name of firstMemo.keys()) if (lined.some((c) => sameCompany(c, name))) firstMemo.delete(name);
             // The new lines' marks look their forms up, so the map comes first.
             const remap = was.length > 0 || n.forms.length > 0;
             if (remap) mapForms();
