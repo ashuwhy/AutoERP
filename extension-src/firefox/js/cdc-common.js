@@ -562,12 +562,10 @@ async function mountPanel(id, anchor, css, html) {
 // Placement season: the first board to draw, once per browser, wishes its reader luck. Many read it right after
 // a rejection, so every line has to land on a bad day too. cdcWished stays out of the popup's CDC_KEYS: Forget keeps it.
 const CDC_WISHES = [
-    "KGP ka tempo high hai. All the best for your interviews and placements, junta.",
     "Load mat lo, junta. Interview mein macha dena.",
-    "Interview first, Tinku at Chhedis after. All the best, junta.",
-    "May your shortlists be long and your interviews short. All the best, KGP.",
-    "Huhaa tempo for every round, junta. All the best for placements.",
-    "Peace rakho. Your company is on its way. All the best.",
+    "All the best for placements, junta!",
+    "Ek ek round nikaalte jao. All the best!",
+    "Chill rehna. Sahi company aayegi.",
 ];
 
 async function cdcWish(shadow) {

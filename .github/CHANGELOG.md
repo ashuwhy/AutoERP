@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2.6.4 (2026-11-28)
+
+
+### Fixes
+
+* **CDC boards**: a line of text on the boards that had gone out of date is replaced
+
 ## 2.6.3 (2026-11-28)
 
 
