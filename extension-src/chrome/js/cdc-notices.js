@@ -42,6 +42,7 @@ cdcSwitch(async (wanted) => {
         .text .gap { display: block; height: 6px; }
         .text a { color: #2563eb; text-decoration-color: #93c5fd; text-underline-offset: 2px; }
         .text a:hover { color: #1d4ed8; text-decoration-color: currentColor; }
+        .text strong { font-weight: 600; color: var(--ink); }
         #back { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--line);
                 border-radius: 6px; background: var(--paper); color: var(--muted); }
         #back:hover { border-color: #d4d4d8; color: var(--ink); }
@@ -426,7 +427,7 @@ cdcSwitch(async (wanted) => {
         if (listed) line.append(listed);
         const text = document.createElement("p");
         text.className = "text";
-        text.append(...(n.lines ? formatText(n) : cdcMarked(n.text, query)));
+        text.append(...(n.lines ? formatText(n) : cdcNoticeMarked(n.text, query)));
         const more = document.createElement("button");
         more.className = "link more";
         more.textContent = "more";
@@ -448,14 +449,15 @@ cdcSwitch(async (wanted) => {
     }
 
     // A page's lines: a block per line, one small gap per blank run, its URLs as links opening in a new tab, a mark after
-    // every form link (the same form twice is one state), the search marked inside text and links alike.
+    // every form link (the same form twice is one state), the search marked inside text and links alike, times and rooms
+    // bold in the text, never inside a link.
     function formatText(n) {
         return n.lines.map((line) => {
             if (!line) return span("gap", "");
             const ln = span("ln", "");
             for (const part of cdcSegments(line)) {
                 if (!part.url) {
-                    ln.append(...cdcMarked(part.text, query));
+                    ln.append(...cdcNoticeMarked(part.text, query));
                     continue;
                 }
                 const link = document.createElement("a");

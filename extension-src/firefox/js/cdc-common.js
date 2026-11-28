@@ -305,6 +305,50 @@ function cdcMarked(text, query) {
     return parts.filter((part) => part !== "");
 }
 
+// A notice's clock times, ranges and NR/NC rooms, as measured on 1465 notices: AM/PM in any case, with or without
+// dots; a range is one span ("6:00 - 7:00 PM"). A meridiem glued to the next word ("4:00 PMKindly", feed text only)
+// is missed on purpose: a looser end would bold "2 AMAZON".
+const CDC_MERIDIEM = String.raw`[AaPp](?:\.\s?[Mm]\.?|[Mm])(?![\p{L}\d])`;
+const CDC_CLOCK = String.raw`\d{1,2}(?:[:.]\d{2})?\s*${CDC_MERIDIEM}`;
+const CDC_TIME_ROOM = new RegExp(
+    String.raw`(?<![\p{L}\d])(?:\d{1,2}[:.]\d{2}(?:\s*${CDC_MERIDIEM})?\s*[-–]\s*${CDC_CLOCK}|${CDC_CLOCK}|N[RC] ?\d{3}(?!\d))`,
+    "gu",
+);
+
+// cdcMarked for a notice's own text: each time and room also in one <strong>, the search's <mark>s inside it where
+// they overlap. <strong>, never <mark>: the board opens any notice with a mark in its text, and most have a time.
+function cdcNoticeMarked(text, query) {
+    const spans = [...text.matchAll(CDC_TIME_ROOM)].map((m) => [m.index, m.index + m[0].length]);
+    const hits = [];
+    const lower = text.toLowerCase();
+    if (query && lower.length === text.length)
+        for (let at = lower.indexOf(query); at >= 0; at = lower.indexOf(query, at + query.length)) hits.push([at, at + query.length]);
+    const cuts = [...new Set([0, text.length, ...spans.flat(), ...hits.flat()])].sort((a, b) => a - b);
+    const within = (ranges, at) => ranges.find(([from, to]) => from <= at && at < to);
+    const parts = [];
+    let bold, boldSpan;
+    for (let i = 0; i + 1 < cuts.length; i++) {
+        const piece = text.slice(cuts[i], cuts[i + 1]);
+        let node = piece;
+        if (within(hits, cuts[i])) {
+            node = document.createElement("mark");
+            node.textContent = piece;
+        }
+        const span = within(spans, cuts[i]);
+        if (!span) {
+            parts.push(node);
+            continue;
+        }
+        if (span !== boldSpan) {
+            bold = document.createElement("strong");
+            boldSpan = span;
+            parts.push(bold);
+        }
+        bold.append(node);
+    }
+    return parts;
+}
+
 // Company names differ between the grid and the notices ("Capgemini Technology Services India
 // Limited" vs "CAPGEMINI"), so they match when one's words are a run of the other's. Whole words:
 // "HP" must not match "Shopee".
