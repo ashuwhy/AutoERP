@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2.6.3 (2026-11-28)
+
+
+### Features
+
+* **CDC notice board**: clock times, time ranges and NR/NC room numbers in a notice's text are bold, so "6:00 PM", "5:30 - 5:45 PM" and "NR 212" stand out from the paragraph. Links, the subject and dates stay as they were, and a search still marks inside a bold time
+* **CDC notice board**: the way back to the company board is an arrow button beside the search box, in place of the Back to company board link
+
+### Fixes
+
+* **CDC notice board**: a form for a company your company board does not list reads **Not eligible** in place of **Mark filled**, once you have opened the board on a later day than the company's first notice. Before, such a form stayed in **Forms to fill**. A company the board lists under another spelling ("QICAP" for "Qi Cap") still counts as listed
+
 ## 2.6.2 (2026-11-26)
 
 
