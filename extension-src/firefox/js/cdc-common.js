@@ -429,7 +429,7 @@ const CDC_CSS = `
             --red-text: #b42318; --red-soft: #fef3f2; --disabled: #e4e4e7; --ring: var(--ink);
             --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color-scheme: light; }
     * { box-sizing: border-box; margin: 0; }
-    .card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 4px; border: 1px solid var(--line);
+    .card { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 4px; border: 1px solid var(--line);
             border-radius: 6px; background: var(--paper); color: var(--ink); font: 13px/1.45 var(--font); text-align: left; }
     /* The bar's floor is its widest piece, the tab group, so in a narrow frame the head wraps under the filters
        instead of squeezing the tabs into a column. On its own line the head may still be wider than a narrow
@@ -504,6 +504,17 @@ const CDC_CSS = `
     button.act:active { transform: scale(0.98); }
     .empty { padding: 14px 8px; color: var(--muted); }
     mark { border-radius: 2px; background: #fde68a; color: inherit; }
+    /* The good-luck note floats over the head, so nothing under it moves. */
+    .wish { position: absolute; top: 8px; right: 8px; z-index: 1; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
+            max-width: min(320px, calc(100% - 16px)); padding: 10px 8px 10px 14px; border: 1px solid var(--line); border-radius: 6px;
+            background: var(--paper); box-shadow: 0 4px 12px rgba(24, 24, 27, 0.08); animation: wish-in 160ms ease-out; transition: opacity 500ms ease; }
+    .wish small { grid-column: 1; color: var(--muted); font-size: 12px; }
+    .wish .x { grid-area: 1 / 2; width: 20px; height: 20px; padding: 0; border: none; border-radius: 4px; cursor: pointer;
+               background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23a1a1aa' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M3.5 3.5l7 7M10.5 3.5l-7 7'/%3E%3C/svg%3E") no-repeat center; }
+    .wish .x:hover { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2318181b' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M3.5 3.5l7 7M10.5 3.5l-7 7'/%3E%3C/svg%3E"); }
+    .wish.going { opacity: 0; }
+    @keyframes wish-in { from { opacity: 0; transform: translateY(4px); } }
+    @media (prefers-reduced-motion: reduce) { .wish { animation: none; transition: none; } }
     .note[hidden], [hidden] { display: none !important; }`;
 
 // Same steps as login.js mountCard: theme.css and the wordmark come from the extension.
@@ -543,6 +554,44 @@ async function mountPanel(id, anchor, css, html) {
         anchor.before(host);
         fit();
         addEventListener("resize", fit);
+        cdcWish(shadow);
     };
     return { shadow, show };
+}
+
+// Placement season: the first board to draw, once per browser, wishes its reader luck. Many read it right after
+// a rejection, so every line has to land on a bad day too. cdcWished stays out of the popup's CDC_KEYS: Forget keeps it.
+const CDC_WISHES = [
+    "KGP ka tempo high hai. All the best for your interviews and placements, junta.",
+    "Load mat lo, junta. Interview mein macha dena.",
+    "Interview first, Tinku at Chhedis after. All the best, junta.",
+    "May your shortlists be long and your interviews short. All the best, KGP.",
+    "Huhaa tempo for every round, junta. All the best for placements.",
+    "Peace rakho. Your company is on its way. All the best.",
+];
+
+async function cdcWish(shadow) {
+    // Turned off while the flag was read: the board is gone, so no note and no flag.
+    if ((await chrome.storage.local.get("cdcWished")).cdcWished || !shadow.host.isConnected) return;
+    chrome.storage.local.set({ cdcWished: true });
+    const note = new DOMParser().parseFromString('<div class="wish" role="status"><p></p><small>- Ashutosh</small>' +
+        '<button type="button" class="x" aria-label="Close"></button></div>', "text/html").body.firstElementChild;
+    note.querySelector("p").textContent = CDC_WISHES[Math.floor(Math.random() * CDC_WISHES.length)];
+    let fade, gone;
+    const wait = () => {
+        fade = setTimeout(() => {
+            note.classList.add("going");
+            gone = setTimeout(() => note.remove(), 500);
+        }, 6000);
+    };
+    // Nobody loses it mid-read: the pointer on it holds it, even mid-fade, and leaving gives it the full 6 s again.
+    note.addEventListener("pointerenter", () => {
+        clearTimeout(fade);
+        clearTimeout(gone);
+        note.classList.remove("going");
+    });
+    note.addEventListener("pointerleave", wait);
+    note.querySelector(".x").addEventListener("click", () => note.remove());
+    shadow.querySelector(".card").append(note);
+    wait();
 }
